@@ -1,0 +1,4 @@
+.gradle/
+build/
+build-ohne-sdk/
+local.properties
