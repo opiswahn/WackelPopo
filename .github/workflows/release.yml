@@ -1,0 +1,71 @@
+# Baut bei jedem Push auf main das APK und veröffentlicht es als GitHub-Release.
+# Die App sucht beim Start nach dem neuesten Release und bietet es zum Installieren an.
+#
+# Braucht zwei Repo-Secrets mit dem Signaturschlüssel (base64), damit Android neue Versionen
+# als Update über die alte installiert: SIGNING_KEY_PEM und SIGNING_CERT_DER.
+name: APK bauen und veröffentlichen
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Werkzeuge laden
+        run: |
+          pip install cryptography
+          mkdir -p "$RUNNER_TEMP/tools"
+          curl -fsSL -o "$RUNNER_TEMP/tools/android.jar" https://raw.githubusercontent.com/Reginer/aosp-android-jar/main/android-35/android.jar
+          curl -fsSL -o "$RUNNER_TEMP/tools/dx.jar" https://repo.maven.apache.org/maven2/com/jakewharton/android/repackaged/dalvik-dx/16.0.1/dalvik-dx-16.0.1.jar
+
+      - name: Signaturschlüssel einrichten
+        env:
+          SIGNING_KEY_PEM: ${{ secrets.SIGNING_KEY_PEM }}
+          SIGNING_CERT_DER: ${{ secrets.SIGNING_CERT_DER }}
+        run: |
+          if [ -z "$SIGNING_KEY_PEM" ] || [ -z "$SIGNING_CERT_DER" ]; then
+            echo "::error::Secrets SIGNING_KEY_PEM und SIGNING_CERT_DER fehlen. Ohne sie lassen sich Updates nicht installieren."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/keys"
+          echo "$SIGNING_KEY_PEM" | base64 -d > "$RUNNER_TEMP/keys/debug-key.pem"
+          echo "$SIGNING_CERT_DER" | base64 -d > "$RUNNER_TEMP/keys/debug-cert.der"
+
+      - name: APK bauen
+        run: |
+          read -r _ name < version.txt
+          # Jeder Build bekommt einen höheren versionCode, damit die App ihn als neu erkennt.
+          echo "VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$name.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+          VERSION_CODE=$((100 + GITHUB_RUN_NUMBER)) VERSION_NAME="$name.$GITHUB_RUN_NUMBER" \
+            ANDROID_JAR="$RUNNER_TEMP/tools/android.jar" DX_JAR="$RUNNER_TEMP/tools/dx.jar" KEYS_DIR="$RUNNER_TEMP/keys" \
+            tools/build-ohne-sdk.sh
+
+      - name: Release veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git log -1 --pretty=%B > notes.txt
+          gh release create "build-$VERSION_CODE" build-ohne-sdk/wackel-popo-debug.apk \
+            --title "Wackel-Popo $VERSION_NAME" --notes-file notes.txt --latest

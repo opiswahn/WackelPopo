@@ -122,16 +122,16 @@ Punktzahl und Spruch und öffnet das Android-Teilen-Menü (WhatsApp usw.).
 APK aufs Handy kopieren, öffnen und „Installation aus unbekannten Quellen“ erlauben,
 oder per `adb install wackel-popo-debug.apk`.
 
-## Updates direkt aus GitHub (ab Version 1.1)
-Beim Start schaut die App in diesem Repo nach `version.txt` (`<versionCode> <versionName>`). Ist der
-versionCode dort höher als der installierte, erscheint oben die Pille „⬇ Neue Version …: tippen zum
-Installieren“. Ein Tipp lädt `wackel-popo-debug.apk` und übergibt es dem Android-Installer; beim ersten
-Mal fragt Android, ob die App andere Apps installieren darf. Ist das Repo privat, fragt die App nach
-einem GitHub-Token mit Lesezugriff. Neue Versionen müssen mit demselben Schlüssel signiert sein,
-sonst lehnt Android das Update ab.
+## Updates direkt aus GitHub
+Jeder Push auf `main` startet den GitHub-Build (`.github/workflows/release.yml`): Er baut das APK mit
+`tools/build-ohne-sdk.sh`, signiert es mit dem Schlüssel aus den Repo-Secrets `SIGNING_KEY_PEM` und
+`SIGNING_CERT_DER` und veröffentlicht es als Release `build-<versionCode>` (versionCode = 100 + Build-Nummer).
 
-Neue Version veröffentlichen: versionCode in `version.txt` erhöhen, `tools/build-ohne-sdk.sh` bauen,
-APK und `version.txt` nach `main` pushen.
+Beim Start fragt die App das neueste Release ab. Ist es neuer als die installierte Version, erscheint oben
+„⬇ Neue Version …: tippen zum Installieren“. Ein Tipp lädt das APK und übergibt es dem Android-Installer;
+beim ersten Mal fragt Android, ob die App andere Apps installieren darf. Gibt es noch kein Release, nimmt die
+App `version.txt` und `wackel-popo-debug.apk` aus dem Repo. Neue Versionen müssen mit demselben Schlüssel
+signiert sein, sonst lehnt Android das Update ab.
 
 ## Selbst bauen
 Normal mit Android Studio öffnen, oder `./gradlew assembleDebug` (braucht Android-SDK).

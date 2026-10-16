@@ -15,14 +15,20 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 /**
- * Installs the newest Wackel-Popo straight from GitHub: version.txt in the repo holds the version
- * code and name of wackel-popo-debug.apk next to it. A token is only needed while the repo is private.
+ * Installs the newest Wackel-Popo straight from GitHub. Every push to main builds a release tagged
+ * build-<versionCode> with the APK attached; before the first release, version.txt and the APK in the
+ * repo are used instead. A token is only needed while the repo is private.
  */
 final class Updater {
     static final String ACTION_INSTALLED = "de.kgoh.wackelpopo.INSTALLED";
-    private static final String API = "https://api.github.com/repos/opiswahn/WackelPopo/contents/";
+    private static final String REPO = "https://api.github.com/repos/opiswahn/WackelPopo/";
     private static final String APK = "wackel-popo-debug.apk";
+    private static final String RAW = "application/vnd.github.raw";
 
     interface Listener {
         void onUpdateAvailable(String versionName);
@@ -40,6 +46,9 @@ final class Updater {
     private final Listener listener;
     private final SharedPreferences prefs;
     private volatile boolean busy;
+    /** Where the newest APK lives, found by the last check. */
+    private volatile String apkUrl = REPO + "contents/" + APK + "?ref=main";
+    private volatile String apkAccept = RAW;
 
     Updater(Activity activity, Listener listener) {
         this.activity = activity;
@@ -63,9 +72,9 @@ final class Updater {
             @Override
             public void run() {
                 try {
-                    String[] remote = readVersion();
+                    String[] remote = readLatest();
                     int code = Integer.parseInt(remote[0]);
-                    if (code > installedVersion()) tell(AVAILABLE, remote.length > 1 ? remote[1] : remote[0], 0);
+                    if (code > installedVersion()) tell(AVAILABLE, remote[1], 0);
                     else tell(UP_TO_DATE, null, 0);
                 } catch (NeedsToken e) {
                     tell(NEEDS_TOKEN, null, 0);
@@ -89,7 +98,7 @@ final class Updater {
             public void run() {
                 PackageInstaller.Session session = null;
                 try {
-                    HttpURLConnection c = open(APK);
+                    HttpURLConnection c = open(apkUrl, apkAccept);
                     long length = c.getContentLengthLong();
                     PackageInstaller installer = activity.getPackageManager().getPackageInstaller();
                     PackageInstaller.SessionParams params =
@@ -154,27 +163,55 @@ final class Updater {
         });
     }
 
-    private String[] readVersion() throws IOException {
-        HttpURLConnection c = open("version.txt");
+    /** Returns {versionCode, versionName} of the newest build and remembers where its APK is. */
+    private String[] readLatest() throws IOException {
+        try {
+            JSONObject release = new JSONObject(read(open(REPO + "releases/latest", "application/vnd.github+json")));
+            String tag = release.getString("tag_name");
+            JSONArray assets = release.getJSONArray("assets");
+            for (int i = 0; i < assets.length(); i++) {
+                JSONObject asset = assets.getJSONObject(i);
+                if (asset.getString("name").endsWith(".apk") && tag.startsWith("build-")) {
+                    apkUrl = asset.getString("browser_download_url");
+                    apkAccept = "application/octet-stream";
+                    String name = release.optString("name", tag).replace("Wackel-Popo ", "");
+                    return new String[]{tag.substring("build-".length()), name};
+                }
+            }
+        } catch (NeedsToken e) {
+            throw e;
+        } catch (IOException | JSONException e) {
+            // No release yet: fall back to the files in the repo.
+        }
+        String[] parts = read(open(REPO + "contents/version.txt?ref=main", RAW)).trim().split("\\s+");
+        apkUrl = REPO + "contents/" + APK + "?ref=main";
+        apkAccept = RAW;
+        return new String[]{parts[0], parts.length > 1 ? parts[1] : parts[0]};
+    }
+
+    private static String read(HttpURLConnection c) throws IOException {
         try (InputStream in = c.getInputStream()) {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-            byte[] buf = new byte[256];
+            byte[] buf = new byte[8192];
             for (int n; (n = in.read(buf)) > 0; ) bytes.write(buf, 0, n);
-            return bytes.toString("UTF-8").trim().split("\\s+");
+            return bytes.toString("UTF-8");
         }
     }
 
-    private HttpURLConnection open(String path) throws IOException {
-        HttpURLConnection c = (HttpURLConnection) new URL(API + path + "?ref=main").openConnection();
-        c.setRequestProperty("Accept", "application/vnd.github.raw");
+    private HttpURLConnection open(String url, String accept) throws IOException {
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        c.setRequestProperty("Accept", accept);
         c.setRequestProperty("User-Agent", "Wackel-Popo");
         String token = token();
-        if (!token.isEmpty()) c.setRequestProperty("Authorization", "Bearer " + token);
+        // Release downloads redirect to another host; the token only goes to GitHub itself.
+        if (!token.isEmpty() && url.startsWith("https://api.github.com/")) {
+            c.setRequestProperty("Authorization", "Bearer " + token);
+        }
         c.setConnectTimeout(15000);
         c.setReadTimeout(30000);
         int code = c.getResponseCode();
         // GitHub answers 404 for a private repo without a valid token.
-        if (code == 401 || code == 403 || code == 404) throw new NeedsToken();
+        if (code == 401 || code == 403 || (code == 404 && !url.contains("/releases/latest"))) throw new NeedsToken();
         if (code != 200) throw new IOException("GitHub antwortet " + code);
         return c;
     }
