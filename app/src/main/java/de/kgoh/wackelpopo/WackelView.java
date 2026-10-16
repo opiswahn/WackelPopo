@@ -636,6 +636,16 @@ public class WackelView extends View {
         if (now - starBorn > 5f) starActive = false;
     }
 
+    /** How loud the music should be right now: quiet in menus, louder when things heat up. */
+    private float musicLevel() {
+        if (overlay != NO_OVERLAY) return 0.15f;
+        if (state == READY) return 0.3f;
+        if (state == OVER) return 0.12f;
+        if (fever || now < discoUntil) return 0.75f;
+        if (counter < 0) return 0.6f;
+        return 0.3f + 0.25f * Math.min(1f, tapRate(2f) / 6f);
+    }
+
     private boolean boosted(int g) {
         return state == PLAYING && playTime < boostUntil[g];
     }
@@ -1124,6 +1134,7 @@ public class WackelView extends View {
         drawParticles(c);
         if (starActive) drawBonusStar(c);
         if (goodie >= 0) drawGoodie(c);
+        Music.setLevel(musicLevel());
         if (state == PLAYING) drawBoosts(c);
         drawHud(c, w, h);
         drawButtons(c);

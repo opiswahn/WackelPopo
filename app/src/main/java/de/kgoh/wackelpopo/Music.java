@@ -6,7 +6,8 @@ import android.media.AudioTrack;
 
 /** Loops the MetalLoop soundtrack in the background; rendered once, then streamed over and over. */
 public final class Music {
-    private static final float VOLUME = 0.45f;
+    /** Volume the music glides towards; the game sets it to match what is happening. */
+    private static volatile float target = 0.4f;
 
     private static short[] loop;
     private static AudioTrack track;
@@ -32,7 +33,8 @@ public final class Music {
                             AudioFormat.ENCODING_PCM_16BIT);
                     t = new AudioTrack(AudioManager.STREAM_MUSIC, MetalLoop.RATE, AudioFormat.CHANNEL_OUT_MONO,
                             AudioFormat.ENCODING_PCM_16BIT, Math.max(min, 8192) * 2, AudioTrack.MODE_STREAM);
-                    t.setVolume(VOLUME);
+                    float volume = 0;
+                    t.setVolume(volume);
                     synchronized (Music.class) {
                         if (!running || generation != mine) return;
                         track = t;
@@ -40,6 +42,9 @@ public final class Music {
                     t.play();
                     int pos = 0, chunk = 2048;
                     while (running && generation == mine) {
+                        // Glide about a second from one level to the next instead of jumping.
+                        volume += Math.max(-0.006f, Math.min(0.006f, target - volume));
+                        t.setVolume(volume);
                         int n = Math.min(chunk, loop.length - pos);
                         int written = t.write(loop, pos, n, AudioTrack.WRITE_NON_BLOCKING);
                         if (written < 0) break;
@@ -56,6 +61,11 @@ public final class Music {
                 }
             }
         }).start();
+    }
+
+    /** 0 = silent, 1 = full blast. */
+    public static void setLevel(float level) {
+        target = level;
     }
 
     /** Stops the music; the writer thread notices within a few milliseconds and releases the track. */

@@ -74,7 +74,8 @@ Man hat etwa 5 Sekunden, es anzutippen, bevor es landet. Laufende Goodies stehen
 
 **Musik (ab 1.2):** Ein 80er-Retro-Metal-Loop (E-Moll, 152 BPM, Galopp-Riff, Doublebass, Square-Lead mit
 Echo), komplett im Code erzeugt (`MetalLoop.java`), keine Audiodatei. Der Knopf 🎸/🔇 unter dem Pokal
-schaltet sie an und aus.
+schaltet sie an und aus. Die Lautstärke folgt dem Spiel: leise im Menü, im Shop und nach Game Over, lauter beim
+schnellen Klatschen, im Minus und am lautesten im Fieber- und Disco-Modus, mit sanftem Übergang.
 
 **Popo-Bewegungen:** 22 Bewegungen (Hops, Doppelhops, Schütteln, Kreisen, Pirouette, Pendel, Wackelpudding,
 Salto, Moonwalk, Stampfen, Quetschen, Pulsieren, Zappeln, Welle, Seitsprung, Schwindelig mit Sternchen,
