@@ -51,11 +51,11 @@ public class WackelView extends View {
     private static final float IDLE_ENERGY = 0.25f;
     private static final float PERIOD_S = 0.52f;
     private static final double GAME_OVER_AT = -10;
-    private static final double BASE_DRAIN = 1.5;
+    private static final double BASE_DRAIN = 1.2;
     /** The cool-down speeds up by this factor every second: doubles roughly every minute. */
-    private static final double DRAIN_GROWTH = 1.012;
-    private static final double FEVER_BONUS = 1.5;
-    private static final double CRIT_FACTOR = 5;
+    private static final double DRAIN_GROWTH = 1.015;
+    private static final double FEVER_BONUS = 1.25;
+    private static final double CRIT_FACTOR = 3;
     private static final float FAST_TAP_S = 0.3f;
     /** Fingers landing within this time of each other belong to the same Griff. */
     private static final float CHORD_GAP_S = 0.09f;
@@ -122,6 +122,8 @@ public class WackelView extends View {
     private float playTime;
     private float lastTap = -100f;
     private int nextAward;
+    /** Klatscher of all earlier games; awards count these plus this game's total. */
+    private double lifetimeBase;
     private int awardsThisGame;
     private float overAt;
     private int lastPlace;
@@ -270,12 +272,18 @@ public class WackelView extends View {
         return true;
     }
 
+    /** True while a round is running; the update pill hides then. */
+    public boolean isPlaying() {
+        return state == PLAYING;
+    }
+
     private void newGame() {
         state = PLAYING;
         counter = 0;
         total = 0;
         playTime = 0;
-        nextAward = 0;
+        lifetimeBase = awards.lifetime();
+        nextAward = Awards.firstAbove(lifetimeBase);
         awardsThisGame = 0;
         taps = 0;
         upgradesBought = 0;
@@ -348,7 +356,7 @@ public class WackelView extends View {
         startMove(pick(SMALL_MOVES), 0.45f, 0.6f + rnd.nextFloat() * 0.4f, 0);
 
         floatText((crit ? "KRIT! +" : "+") + fmt(gain), x, y, crit ? GOLD : Color.WHITE, crit ? 1.5f : 0.9f, crit ? 2 : 0);
-        if (rnd.nextFloat() < 0.22f) {
+        if (rnd.nextFloat() < 0.1f) {
             float a = rnd.nextFloat() * 6.283f;
             float d = popoR * (1.3f + rnd.nextFloat() * 0.6f);
             word(Words.pick(Words.TAP, rnd), popoX + (float) Math.cos(a) * d, popoY + (float) Math.sin(a) * d * 0.8f,
@@ -363,7 +371,7 @@ public class WackelView extends View {
     private void tapBurst(float x, float y) {
         int kind = rnd.nextInt(5);
         int[] shapes = {SHAPE_STAR, SHAPE_HEART, SHAPE_RECT, SHAPE_CIRCLE, SHAPE_PUFF};
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 3; i++) {
             Particle p = spawn(x, y, shapes[kind], kind == 4 ? Color.WHITE : PARTY[rnd.nextInt(PARTY.length)],
                     popoR * (kind == 4 ? 0.08f : 0.05f + 0.03f * rnd.nextFloat()), 0.6f);
             double a = rnd.nextFloat() * Math.PI * 2;
@@ -402,7 +410,7 @@ public class WackelView extends View {
         chordRepeat = chord.key.equals(lastChordKey) && now - lastChordAt < 2.5f ? chordRepeat + 1 : 1;
         lastChordKey = chord.key;
         lastChordAt = now;
-        double repeatBonus = 1 + 0.1 * (Math.min(chordRepeat, 5) - 1);
+        double repeatBonus = 1 + 0.05 * (Math.min(chordRepeat, 5) - 1);
         double bonus = chordGain * (chord.multiplier * repeatBonus - 1);
         counter += bonus;
         total += bonus;
@@ -411,47 +419,35 @@ public class WackelView extends View {
             bestChord = chord.name;
         }
 
-        String label = chord.name + "  x" + fmtMult(chord.multiplier * repeatBonus);
-        word(label, popoX, popoY - popoR * (0.5f + 0.15f * chord.tier), PARTY[rnd.nextInt(PARTY.length)],
-                1.1f + 0.25f * chord.tier, chord.tier >= 2 ? 5 : (chord.tier == 1 ? 1 : 0));
-        if (chordRepeat > 1) {
+        // Grips happen constantly with many fingers, so they get a small show; the name only pops up
+        // when the grip changes, and the series label only at 3 and 5 in a row.
+        if (chordRepeat == 1) {
+            String label = chord.name + "  x" + fmtMult(chord.multiplier);
+            word(label, popoX, popoY - popoR * (0.5f + 0.1f * chord.tier), PARTY[rnd.nextInt(PARTY.length)],
+                    1f + 0.1f * chord.tier, chord.tier >= 2 ? 1 : 0);
+        } else if (chordRepeat == 3 || chordRepeat == 5) {
             word("Serie x" + chordRepeat + "!", popoX, popoY + popoR * 1.9f, GOLD, 1f, 6);
         }
-        floatText("+" + fmt(bonus), popoX, popoY + popoR * 0.5f, GREEN, 1.2f + 0.2f * chord.tier, 2);
+        floatText("+" + fmt(bonus), popoX, popoY + popoR * 0.5f, GREEN, 1f, 0);
 
         switch (chord.tier) {
             case 0:
-                confetti(15 + chordLeft * 5 + chordRight * 5);
-                startMove(pick(MEDIUM_MOVES), 0.8f, 0.6f, 1);
+                confetti(4 + chordLeft + chordRight);
                 break;
             case 1:
-                confetti(60);
-                punch = 0.05f;
-                startMove(pick(MEDIUM_MOVES), 1.0f, 1f, 2);
-                Synth.melody(new float[]{523, 784}, 0.07f);
+                confetti(12);
+                startMove(pick(MEDIUM_MOVES), 0.8f, 0.6f, 1);
                 break;
             case 2:
-                confetti(100);
-                firework(popoX - popoR * 1.5f, popoY - popoR);
-                firework(popoX + popoR * 1.5f, popoY - popoR);
-                punch = 0.08f;
-                flashUntil = now + 0.15f;
-                startMove(pick(BIG_MOVES), 1.0f, 1f, 3);
-                Synth.melody(new float[]{523, 659, 784, 1047}, 0.07f);
-                vibrate(new long[]{0, 60, 40, 120});
+                confetti(20);
+                startMove(pick(MEDIUM_MOVES), 0.9f, 0.8f, 2);
+                if (chordRepeat == 1) Synth.melody(new float[]{523, 784}, 0.06f);
                 break;
             default:
-                confetti(180);
-                for (int k = 0; k < 4; k++) {
-                    pendingBursts.add(new float[]{now + k * 0.2f, getWidth() * (0.15f + 0.7f * rnd.nextFloat()),
-                            getHeight() * (0.12f + 0.3f * rnd.nextFloat())});
-                }
-                punch = 0.12f;
-                flashUntil = now + 0.25f;
-                shakeUntil = now + 0.8f;
-                startMove(rnd.nextBoolean() ? MOVE_FLIP : MOVE_SPIN, 1.2f, 1f, 4);
-                Synth.melody(new float[]{392, 523, 659, 784, 1047, 1319}, 0.07f);
-                vibrate(new long[]{0, 80, 50, 80, 50, 200});
+                confetti(30);
+                punch = 0.04f;
+                startMove(pick(MEDIUM_MOVES), 1.0f, 1f, 2);
+                if (chordRepeat == 1) Synth.melody(new float[]{523, 659, 784}, 0.06f);
                 break;
         }
 
@@ -468,7 +464,7 @@ public class WackelView extends View {
     private void catchStar() {
         starActive = false;
         starsCaught++;
-        double bonus = Math.max(50, 12 * drainRate() + 15 * shop.tapGain(false));
+        double bonus = Math.max(20, 6 * drainRate() + 8 * shop.tapGain(false));
         counter += bonus;
         total += bonus;
         queueBanner("STERN GEFANGEN!", "+" + fmt(bonus), GOLD);
@@ -516,7 +512,7 @@ public class WackelView extends View {
         double auto = shop.autoRate();
         counter += (auto - drainRate()) * dt;
         total += auto * dt;
-        while (nextAward < Awards.COUNT && total >= Awards.threshold(nextAward)) award(nextAward++);
+        while (nextAward < Awards.COUNT && lifetimeBase + total >= Awards.threshold(nextAward)) award(nextAward++);
 
         updateFever(dt);
         updateStar(dt);
@@ -546,12 +542,12 @@ public class WackelView extends View {
     private void updateFever(float dt) {
         float rate = tapRate(1f);
         if (!fever) {
-            feverCharge = rate >= 7 ? feverCharge + dt : Math.max(0, feverCharge - dt * 2);
+            feverCharge = rate >= 8 ? feverCharge + dt : Math.max(0, feverCharge - dt * 2);
             if (feverCharge >= 2.5f) {
                 fever = true;
                 feverStart = now;
                 feverCalm = 0;
-                queueBanner("FIEBER-MODUS!", "Alles x1,5, nicht aufhören!", RED);
+                queueBanner("FIEBER-MODUS!", "Alles x1,25, nicht aufhören!", RED);
                 flashUntil = now + 0.2f;
                 Synth.melody(new float[]{523, 659, 784, 659, 784, 1047}, 0.06f);
                 special(Awards.FEVER);
@@ -612,6 +608,7 @@ public class WackelView extends View {
         overAt = now;
         fever = false;
         starActive = false;
+        awards.setLifetime(lifetimeBase + total);
         int score = (int) Math.min(Integer.MAX_VALUE, total);
         int best = scores.best();
         lastPlace = score > 0 ? scores.add(score, System.currentTimeMillis()) : 0;
@@ -628,13 +625,14 @@ public class WackelView extends View {
     // ---------------------------------------------------------------- awards
 
     private void award(int i) {
+        awards.setLifetime(lifetimeBase + total);
+        if (!awards.unlock(i)) return;
         awardsThisGame++;
-        boolean isNew = awards.unlock(i);
-        queueBanner("AWARD " + (i + 1) + (isNew ? " · NEU!" : ""), Awards.NAMES[i], PARTY[i % PARTY.length]);
+        queueBanner("AWARD " + (i + 1) + " · NEU!", Awards.NAMES[i], PARTY[i % PARTY.length]);
         vibrate(new long[]{0, 80, 70, 80, 70, 250});
         if (awards.normalUnlockedCount() >= 50) special(Awards.COLLECTOR);
         int effect = i % EFFECT_COUNT;
-        float power = 1f + i / 30f;
+        float power = 1f + i / 60f;
         if (effect != 1) {
             Synth.melody(i >= 90 ? new float[]{392, 523, 659, 784, 1047, 1319, 1568}
                     : new float[]{392, 523, 659, 784, 659, 1047}, 0.11f);
@@ -1249,7 +1247,7 @@ public class WackelView extends View {
         int color = counter < 0 ? RED : (counter >= cheapestPrice() ? GREEN : Color.WHITE);
         float bump = 1 + 0.08f * Math.max(0, energy - IDLE_ENERGY);
         drawOutlined(c, fmt(counter), w / 2f, h * 0.775f, unit * 0.12f * bump, color, 0);
-        smallText(c, fever ? "🔥 FIEBER-MODUS: alles x1,5 🔥" : "Popo-Klatsch-Counter", w / 2f, h * 0.81f, ink);
+        smallText(c, fever ? "🔥 FIEBER-MODUS: alles x1,25 🔥" : "Popo-Klatsch-Counter", w / 2f, h * 0.81f, ink);
         String rates = "+" + fmt(shop.tapGain(false)) + " pro Klatsch   ·   −" + fmt1(drainRate()) + "/s";
         if (shop.autoRate() > 0) rates += "   ·   Auto +" + fmt1(shop.autoRate()) + "/s";
         smallText(c, rates, w / 2f, h * 0.843f, ink);
@@ -1261,7 +1259,7 @@ public class WackelView extends View {
         if (nextAward < Awards.COUNT) {
             long from = nextAward == 0 ? 0 : Awards.threshold(nextAward - 1);
             long to = Awards.threshold(nextAward);
-            progress = (float) Math.max(0, Math.min(1, (total - from) / (double) (to - from)));
+            progress = (float) Math.max(0, Math.min(1, (lifetimeBase + total - from) / (double) (to - from)));
             label = "Award " + (nextAward + 1) + " bei " + fmt(to) + ": " + Awards.NAMES[nextAward];
         }
         fill.setColor(0x33000000);
@@ -1560,7 +1558,7 @@ public class WackelView extends View {
             detail = "Du bist das POPO-UNIVERSUM.";
         } else if (show < Awards.COUNT) {
             title = (awards.isUnlocked(show) ? "✔ " : "") + "Award " + (show + 1) + ": " + Awards.NAMES[show];
-            detail = "bei " + fmt(Awards.threshold(show)) + " Klatschern in einem Spiel";
+            detail = "bei " + fmt(Awards.threshold(show)) + " Klatschern über alle Spiele";
         } else {
             String[] sp = Awards.SPECIALS[show - Awards.COUNT];
             title = (awards.isUnlocked(show) ? "✔ " : "") + "★ " + sp[0];
@@ -1651,7 +1649,8 @@ public class WackelView extends View {
     }
 
     private static String fmtMult(double v) {
-        return v == Math.floor(v) ? String.valueOf((long) v) : String.format(Locale.GERMANY, "%.1f", v);
+        String s = String.format(Locale.GERMANY, "%.2f", v);
+        return s.replaceAll("0+$", "").replaceAll(",$", "");
     }
 
     private void drawParticles(Canvas c) {

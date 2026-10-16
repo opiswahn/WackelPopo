@@ -1,3 +1,5 @@
+val version = rootProject.file("version.txt").readText().trim().split(Regex("\\s+"))
+
 plugins {
     id("com.android.application")
 }
@@ -10,8 +12,8 @@ android {
         applicationId = "de.kgoh.wackelpopo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = version[0].toInt()
+        versionName = version[1]
     }
 
     compileOptions {

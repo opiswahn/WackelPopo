@@ -2,7 +2,7 @@ package de.kgoh.wackelpopo;
 
 /**
  * Multi-finger grips: fingers that land together count as one "Griff", i.e. one klatsch times the
- * grip's multiplier (not one klatsch per finger). How many land left and right of the popo decides
+ * grip's small multiplier (not one klatsch per finger). How many land left and right of the popo decides
  * the name and the multiplier.
  */
 public final class Chords {
@@ -31,38 +31,38 @@ public final class Chords {
         String key = left + ":" + right;
         String side = left > right ? "links" : "rechts";
         if (n == 2) {
-            if (lo == 1) return new Chord(key, "Doppel-Klatsch!", 1.4, 0);
-            return new Chord(key, "Zwillinge " + side + "!", 1.2, 0);
+            if (lo == 1) return new Chord(key, "Doppel-Klatsch!", 1.1, 0);
+            return new Chord(key, "Zwillinge " + side + "!", 1.05, 0);
         }
         if (n == 3) {
-            if (lo == 1) return new Chord(key, "Dreier-Polka!", 1.6, 0);
-            return new Chord(key, "Dreizack " + side + "!", 1.4, 0);
+            if (lo == 1) return new Chord(key, "Dreier-Polka!", 1.15, 0);
+            return new Chord(key, "Dreizack " + side + "!", 1.1, 0);
         }
         if (n == 4) {
-            if (lo == 2) return new Chord(key, "Symmetrie-Klatsch!", 2, 1);
-            if (lo == 1) return new Chord(key, "Schiefer Turm!", 1.8, 1);
-            return new Chord(key, "Vier-Finger-Wedel " + side + "!", 1.6, 1);
+            if (lo == 2) return new Chord(key, "Symmetrie-Klatsch!", 1.25, 1);
+            if (lo == 1) return new Chord(key, "Schiefer Turm!", 1.2, 1);
+            return new Chord(key, "Vier-Finger-Wedel " + side + "!", 1.15, 1);
         }
         if (n == 5) {
-            if (lo == 2) return new Chord(key, "Fünf-Sterne-Klatsch!", 2.2, 1);
-            if (lo == 1) return new Chord(key, "Handschlag-Hammer!", 2, 1);
-            return new Chord(key, "Ganze Hand " + side + "!", 1.8, 1);
+            if (lo == 2) return new Chord(key, "Fünf-Sterne-Klatsch!", 1.3, 1);
+            if (lo == 1) return new Chord(key, "Handschlag-Hammer!", 1.25, 1);
+            return new Chord(key, "Ganze Hand " + side + "!", 1.2, 1);
         }
         if (n == 6) {
-            if (lo == 3) return new Chord(key, "Hexen-Klatsch!", 2.6, 2);
-            if (lo == 2) return new Chord(key, "Sechser-Salve!", 2.4, 2);
-            return new Chord(key, "Sechser-Sturm!", 2.2, 2);
+            if (lo == 3) return new Chord(key, "Hexen-Klatsch!", 1.45, 2);
+            if (lo == 2) return new Chord(key, "Sechser-Salve!", 1.4, 2);
+            return new Chord(key, "Sechser-Sturm!", 1.3, 2);
         }
         if (n == 7) {
-            if (lo == 3) return new Chord(key, "Glückliche Sieben!", 2.8, 2);
-            return new Chord(key, "Sieben auf einen Streich!", 2.6, 2);
+            if (lo == 3) return new Chord(key, "Glückliche Sieben!", 1.5, 2);
+            return new Chord(key, "Sieben auf einen Streich!", 1.45, 2);
         }
         if (n == 8) {
-            if (lo == 4) return new Chord(key, "OKTOPUS-KLATSCH!", 3.2, 3);
-            return new Chord(key, "Achterbahn!", 3, 3);
+            if (lo == 4) return new Chord(key, "OKTOPUS-KLATSCH!", 1.6, 3);
+            return new Chord(key, "Achterbahn!", 1.55, 3);
         }
-        if (n == 9) return new Chord(key, "Neunmalklug!", 3.5, 3);
-        if (lo == 5 && hi == 5) return new Chord(key, "ZEHN-FINGER-GEWITTER!", 4, 3);
-        return new Chord(key, "Finger-Lawine!", 3.6, 3);
+        if (n == 9) return new Chord(key, "Neunmalklug!", 1.7, 3);
+        if (lo == 5 && hi == 5) return new Chord(key, "ZEHN-FINGER-GEWITTER!", 1.8, 3);
+        return new Chord(key, "Finger-Lawine!", 1.7, 3);
     }
 }

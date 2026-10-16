@@ -18,13 +18,16 @@ import datetime
 PKG = "de.kgoh.wackelpopo"
 APP_NAME = "Wackel-Popo"
 MIN_SDK, TARGET_SDK = 24, 35
+# Version of the build; the in-app updater compares VERSION_CODE with version.txt on GitHub.
+VERSION_CODE = int(os.environ.get("VERSION_CODE", "1"))
+VERSION_NAME = os.environ.get("VERSION_NAME", "1.0")
 ICON_PATH = "res/mipmap-xxxhdpi-v4/ic_launcher.png"
 ID_ICON, ID_APP_NAME = 0x7F010000, 0x7F020000
 THEME_MATERIAL_LIGHT_NOACTIONBAR = 16974401
 
 ATTR = {
     "theme": 16842752, "label": 16842753, "icon": 16842754, "name": 16842755,
-    "exported": 16842768, "screenOrientation": 16842782, "minSdkVersion": 16843276,
+    "exported": 16842768, "launchMode": 16842781, "screenOrientation": 16842782, "minSdkVersion": 16843276,
     "versionCode": 16843291, "versionName": 16843292, "targetSdkVersion": 16843376,
     "allowBackup": 16843392,
 }
@@ -65,11 +68,13 @@ def manifest_tree():
     A = lambda name, kind, value: (name, kind, value)
     return ("manifest", [
         (None, "package", "str", PKG),
-        ("a", "versionCode", "int", 1),
-        ("a", "versionName", "str", "1.0"),
+        ("a", "versionCode", "int", VERSION_CODE),
+        ("a", "versionName", "str", VERSION_NAME),
     ], [
         ("uses-sdk", [("a", "minSdkVersion", "int", MIN_SDK), ("a", "targetSdkVersion", "int", TARGET_SDK)], []),
         ("uses-permission", [("a", "name", "str", "android.permission.VIBRATE")], []),
+        ("uses-permission", [("a", "name", "str", "android.permission.INTERNET")], []),
+        ("uses-permission", [("a", "name", "str", "android.permission.REQUEST_INSTALL_PACKAGES")], []),
         ("application", [
             ("a", "theme", "ref", THEME_MATERIAL_LIGHT_NOACTIONBAR),
             ("a", "label", "ref", ID_APP_NAME),
@@ -79,6 +84,7 @@ def manifest_tree():
             ("activity", [
                 ("a", "name", "str", PKG + ".MainActivity"),
                 ("a", "exported", "bool", True),
+                ("a", "launchMode", "int", 1),
                 ("a", "screenOrientation", "int", 1),
             ], [
                 ("intent-filter", [], [

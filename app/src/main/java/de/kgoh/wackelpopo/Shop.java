@@ -7,9 +7,9 @@ public final class Shop {
     public static final String[] ICONS = {"👏", "🤖", "🧴", "⚡", "🔥", "👑"};
     public static final String[] NAMES = {"Doppelhand", "Auto-Klatscher", "Popo-Creme", "Kritischer Klatscher",
             "Combo-Turbo", "Goldener Popo"};
-    private static final double[] BASE = {15, 30, 50, 80, 120, 500};
-    private static final double[] GROWTH = {1.6, 1.6, 1.9, 1.7, 1.8, 4.0};
-    private static final int[] MAX = {99, 99, 10, 10, 20, 10};
+    private static final double[] BASE = {25, 40, 60, 100, 150, 400};
+    private static final double[] GROWTH = {2.0, 2.0, 2.2, 2.2, 2.2, 2.5};
+    private static final int[] MAX = {99, 99, 10, 10, 10, 5};
 
     private final int[] levels = new int[NAMES.length];
 
@@ -39,35 +39,39 @@ public final class Shop {
             case HAND:
                 return "+1 pro Klatsch (jetzt " + (1 + levels[HAND]) + ")";
             case AUTO:
-                return "+1 pro Sekunde von allein (jetzt " + levels[AUTO] + "/s)";
+                return "+0,5 pro Sekunde von allein (jetzt " + fmt(0.5 * levels[AUTO]) + "/s)";
             case CREAM:
-                return "Counter sinkt 15 % langsamer";
+                return "Counter sinkt 12 % langsamer";
             case CRIT:
-                return "+5 % Chance auf x5 (jetzt " + 5 * levels[CRIT] + " %)";
+                return "+4 % Chance auf x3 (jetzt " + 4 * levels[CRIT] + " %)";
             case TURBO:
-                return "+20 % bei Schnellklatschen (jetzt +" + 20 * levels[TURBO] + " %)";
+                return "+10 % bei Schnellklatschen (jetzt +" + 10 * levels[TURBO] + " %)";
             default:
-                return "Alles x1,3 (jetzt x" + String.format(java.util.Locale.GERMANY, "%.1f", goldMultiplier()) + ")";
+                return "Alles +15 % (jetzt x" + fmt(goldMultiplier()) + ")";
         }
     }
 
     public double tapGain(boolean fast) {
-        return (1 + levels[HAND]) * (fast ? 1 + 0.2 * levels[TURBO] : 1) * goldMultiplier();
+        return (1 + levels[HAND]) * (fast ? 1 + 0.1 * levels[TURBO] : 1) * goldMultiplier();
     }
 
     public double autoRate() {
-        return levels[AUTO] * goldMultiplier();
+        return 0.5 * levels[AUTO] * goldMultiplier();
     }
 
     public double critChance() {
-        return 0.05 * levels[CRIT];
+        return 0.04 * levels[CRIT];
     }
 
     public double drainFactor() {
-        return Math.pow(0.85, levels[CREAM]);
+        return Math.pow(0.88, levels[CREAM]);
     }
 
     public double goldMultiplier() {
-        return Math.pow(1.3, levels[GOLD]);
+        return 1 + 0.15 * levels[GOLD];
+    }
+
+    private static String fmt(double v) {
+        return String.format(java.util.Locale.GERMANY, "%.2f", v).replaceAll("0+$", "").replaceAll(",$", "");
     }
 }

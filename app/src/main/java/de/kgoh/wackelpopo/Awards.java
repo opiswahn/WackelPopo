@@ -4,8 +4,8 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 /**
- * The 100 awards. Each one unlocks when a game's total Klatscher reach its threshold; thresholds
- * grow by 22% per award, so the first come quickly and the last ones take serious upgrading.
+ * The 100 awards. Each one unlocks once, when the Klatscher of all games together reach its
+ * threshold, so you work your way up over many games instead of re-earning them every game.
  */
 public final class Awards {
     public static final String[] NAMES = {
@@ -93,11 +93,33 @@ public final class Awards {
         prefs = context.getSharedPreferences("awards", Context.MODE_PRIVATE);
         String raw = prefs.getString("unlocked", "");
         for (int i = 0; i < TOTAL && i < raw.length(); i++) unlocked[i] = raw.charAt(i) == '1';
+        if (prefs.getInt("version", 1) < 2) {
+            // Version 1 counted awards per game and handed them out far too fast: start the normal ones afresh.
+            for (int i = 0; i < COUNT; i++) unlocked[i] = false;
+            save();
+            prefs.edit().putInt("version", 2).apply();
+        }
     }
 
-    /** Total Klatscher needed for award i (0-based): 25, 30, 37, ... about 9 billion for the last. */
+    /** Klatscher of all finished games together. */
+    public double lifetime() {
+        return Double.longBitsToDouble(prefs.getLong("lifetime", 0));
+    }
+
+    public void setLifetime(double value) {
+        prefs.edit().putLong("lifetime", Double.doubleToLongBits(value)).apply();
+    }
+
+    /** The first normal award not yet reached with this many Klatscher. */
+    public static int firstAbove(double klatscher) {
+        int i = 0;
+        while (i < COUNT && klatscher >= threshold(i)) i++;
+        return i;
+    }
+
+    /** Klatscher over all games needed for award i (0-based): 100, 610, 1.700, ... 16 million for the last. */
     public static long threshold(int i) {
-        double raw = 25 * Math.pow(1.22, i);
+        double raw = 100 * Math.pow(i + 1, 2.6);
         // Round to two significant digits so the numbers look tidy.
         double mag = Math.pow(10, Math.max(0, Math.floor(Math.log10(raw)) - 1));
         return (long) (Math.round(raw / mag) * mag);
@@ -124,10 +146,14 @@ public final class Awards {
     public boolean unlock(int i) {
         if (unlocked[i]) return false;
         unlocked[i] = true;
+        save();
+        return true;
+    }
+
+    private void save() {
         StringBuilder sb = new StringBuilder();
         for (boolean b : unlocked) sb.append(b ? '1' : '0');
         prefs.edit().putString("unlocked", sb.toString()).apply();
-        return true;
     }
 
     /** Counts a started game and returns how many have been played so far. */
