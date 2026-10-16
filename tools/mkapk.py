@@ -27,7 +27,7 @@ THEME_MATERIAL_LIGHT_NOACTIONBAR = 16974401
 
 ATTR = {
     "theme": 16842752, "label": 16842753, "icon": 16842754, "name": 16842755,
-    "exported": 16842768, "launchMode": 16842781, "screenOrientation": 16842782, "minSdkVersion": 16843276,
+    "authorities": 16842776, "grantUriPermissions": 16842779, "exported": 16842768, "launchMode": 16842781, "screenOrientation": 16842782, "minSdkVersion": 16843276,
     "versionCode": 16843291, "versionName": 16843292, "targetSdkVersion": 16843376,
     "allowBackup": 16843392,
 }
@@ -92,6 +92,12 @@ def manifest_tree():
                     ("category", [("a", "name", "str", "android.intent.category.LAUNCHER")], []),
                 ]),
             ]),
+            ("provider", [
+                ("a", "name", "str", PKG + ".ShareProvider"),
+                ("a", "authorities", "str", PKG + ".share"),
+                ("a", "exported", "bool", False),
+                ("a", "grantUriPermissions", "bool", True),
+            ], []),
         ]),
     ])
 

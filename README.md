@@ -73,7 +73,8 @@ Man hat etwa 5 Sekunden, es anzutippen, bevor es landet. Laufende Goodies stehen
 | 💨 Stinkbombe | Falle! Antippen kostet 15 % vom Counter, also lieber fallen lassen |
 
 **Musik (ab 1.2):** Ein 80er-Retro-Metal-Loop (E-Moll, 152 BPM, Galopp-Riff, Doublebass, Square-Lead mit
-Echo), komplett im Code erzeugt (`MetalLoop.java`), keine Audiodatei. Der Knopf 🎸/🔇 unter dem Pokal
+Echo), komplett im Code erzeugt (`MetalLoop.java`), keine Audiodatei. Seit 1.4 gibt es drei Songs: ruhige
+Gitarre im Menü, den Haupt-Song im Spiel und einen schnelleren Song einen Ton höher im Fieber-Modus und beim Boss. Der Knopf 🎸/🔇 unter dem Pokal
 schaltet sie an und aus. Die Lautstärke folgt dem Spiel: leise im Menü, im Shop und nach Game Over, lauter beim
 schnellen Klatschen, im Minus und am lautesten im Fieber- und Disco-Modus, mit sanftem Übergang.
 
@@ -88,12 +89,30 @@ frierender Popo im Minus und ein schlafender Popo nach dem Spiel.
 **Wörter:** über 120 Comic-Wörter (60 Klatsch-Laute, 34 Lobsprüche, Gefahr-, Shop- und Rettungs-Sprüche)
 in 7 Animationsarten: Plopp, Wackeln, Heranzoomen, Bogenflug, Zittern, Regenbogen-Welle, Gummi-Dehnen.
 
-**34 Spezial-Awards** (lila Sterne im Award-Raster, antippen zeigt die Bedingung): z. B. Oktopus (4+4 Finger),
+**36 Spezial-Awards** (lila Sterne im Award-Raster, antippen zeigt die Bedingung): z. B. Oktopus (4+4 Finger),
 Zehn-Finger-Gott, Rhythmus-Meister, Fieberwahn, Tippmaschine (12 pro Sekunde), Eiserner Popo (10 Minuten),
 Haarscharf (unter -9 und gerettet), Comeback-Kid, Geizhals, Dagobert, Sternenfänger, Nachteule, Popo-Veteran.
-Dazu kommen Goodie-Jäger, Bescherung, Nasenklammer und Ausweichkünstler. Insgesamt 134 Awards. Liste in `Awards.java`.
+Dazu kommen Goodie-Jäger, Bescherung, Nasenklammer und Ausweichkünstler. Dazu Boss-Bezwinger und Boss-Jäger. Insgesamt 136 Awards. Liste in `Awards.java`.
 
 **Bestenliste:** Top 10 Spiele nach Gesamt-Klatschern, mit Datum.
+
+**Boss-Popos (ab 1.4):** Nach gut einer Minute und dann alle 100 bis 140 Sekunden wird der Popo zum Boss
+(lila, größer, Wikingerhelm, Sonnenbrille, Lebensbalken oben). Jeder Finger auf dem Popo zieht einen Punkt ab;
+der Boss hat 60 Lebenspunkte, jeder weitere im selben Spiel 25 mehr, und man hat 20 Sekunden. Sieg: dicker
+Punkte-Bonus, Popo-Taler, Krone und mit 35 % Chance ein Garderoben-Teil als Beute. Während des Bosses läuft
+der schnelle Fieber-Song in voller Lautstärke.
+
+**Garderobe (ab 1.4):** Der Knopf 👕 oben links (außerhalb des Spiels) öffnet die Garderobe. Mit Popo-Talern
+kauft man dauerhaft Hüte (Kappe, Partyhut, Cowboyhut, Zylinder, Wikingerhelm), Brillen (Sonnen-, Nerd-,
+Herzbrille) und feste Hosenfarben. Taler gibt es am Spielende (1 pro 500 Klatscher), für Bosse (10 + 5 pro
+Boss im Spiel) und für die Tages-Challenge.
+
+**Tages-Challenge (ab 1.4):** Jeden Tag eine andere Aufgabe aus 10 (z. B. 4 Goodies fangen, 4 Minuten
+überleben, einen Boss besiegen, 2 Minuten ohne Shop). Steht auf dem Startbildschirm. Geschafft gibt es
+40 Taler plus 10 pro Tag in Folge (bis +100).
+
+**Rekord teilen (ab 1.4):** Auf der Game-Over-Karte macht „📤 Rekord teilen“ ein Bild mit Popo samt Outfit,
+Punktzahl und Spruch und öffnet das Android-Teilen-Menü (WhatsApp usw.).
 
 - `app/` – Android-Projekt (Java, eine eigene `View`, die alles auf ein Canvas zeichnet; keine Bibliotheken)
 - `wackel-popo-debug.apk` – fertiges Debug-APK (minSdk 24 / Android 7, targetSdk 35, v2-signiert mit Debug-Schlüssel)

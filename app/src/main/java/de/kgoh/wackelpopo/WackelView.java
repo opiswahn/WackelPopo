@@ -63,7 +63,7 @@ public class WackelView extends View {
     private static final int EFFECT_COUNT = 12;
 
     private static final int READY = 0, PLAYING = 1, OVER = 2;
-    private static final int NO_OVERLAY = 0, SHOP = 1, TROPHY = 2;
+    private static final int NO_OVERLAY = 0, SHOP = 1, TROPHY = 2, WARDROBE = 3;
 
     private static final int SHAPE_RECT = 0, SHAPE_CIRCLE = 1, SHAPE_HEART = 2, SHAPE_STAR = 3, SHAPE_PUFF = 4,
             SHAPE_TEXT = 5, SHAPE_BUBBLE = 6, SHAPE_COIN = 7;
@@ -187,6 +187,26 @@ public class WackelView extends View {
     /** playTime until which each timed goodie is active. */
     private final float[] boostUntil = new float[Goodies.ICONS.length];
     private boolean musicOn;
+
+    // Boss popos: every couple of minutes the popo turns into a boss that has to be clapped away in time.
+    private static final String[] BOSS_NAMES = {"Graf Gesäß", "Backzilla", "König Wabbel", "Der Eiserne Hintern",
+            "Popozilla", "Baron von Backe"};
+    private static final float BOSS_SECONDS = 20f;
+    private boolean bossActive;
+    private int bossHp, bossMaxHp, bossesBeaten;
+    private float bossEnd, nextBossAt, bossHitAt = -10f;
+    private String bossName = "";
+
+    private final Wardrobe wardrobe;
+    private final Daily daily;
+    private boolean dailyDoneNow, feverReached;
+    private int symmetryCount;
+    private long talerThisGame;
+    private final RectF shareBtn = new RectF();
+    private final RectF[][] wardrobeCells = new RectF[Wardrobe.ITEMS.length][];
+    private static final String[] SHARE_LINES = {"Schlag das, wenn du kannst!", "Mein Popo ist schneller als deiner!",
+            "Hier wird nicht gekleckert, hier wird geklatscht!", "Wackel-Weltmeister am Werk!",
+            "Die Backen glühen noch!", "Wer klatscht mehr?"};
     private final android.content.SharedPreferences settings;
 
     // Layout.
@@ -205,6 +225,12 @@ public class WackelView extends View {
         scores = new HighscoreStore(context);
         awards = new Awards(context);
         settings = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
+        wardrobe = new Wardrobe(context);
+        daily = new Daily(context);
+        for (int cat = 0; cat < wardrobeCells.length; cat++) {
+            wardrobeCells[cat] = new RectF[Wardrobe.ITEMS[cat].length];
+            for (int i = 0; i < wardrobeCells[cat].length; i++) wardrobeCells[cat][i] = new RectF();
+        }
         musicOn = settings.getBoolean("music", true);
         for (int i = 0; i < shopRows.length; i++) shopRows[i] = new RectF();
         line.setStyle(Paint.Style.STROKE);
@@ -251,6 +277,22 @@ public class WackelView extends View {
             if (closeBtn.contains(x, y) || !card.contains(x, y)) overlay = NO_OVERLAY;
             return true;
         }
+        if (overlay == WARDROBE) {
+            for (int cat = 0; cat < wardrobeCells.length; cat++) {
+                for (int i = 0; i < wardrobeCells[cat].length; i++) {
+                    if (!wardrobeCells[cat][i].contains(x, y)) continue;
+                    if (wardrobe.pick(cat, i)) {
+                        Synth.melody(new float[]{659, 988}, 0.07f);
+                        startMove(pick(MEDIUM_MOVES), 0.8f, 0.8f, 2);
+                    } else {
+                        vibrate(new long[]{0, 30, 40, 30});
+                    }
+                    return true;
+                }
+            }
+            if (closeBtn.contains(x, y) || !card.contains(x, y)) overlay = NO_OVERLAY;
+            return true;
+        }
         if (overlay == TROPHY) {
             if (tabs[0].contains(x, y)) {
                 trophyTab = 0;
@@ -277,12 +319,16 @@ public class WackelView extends View {
             selectedAward = -1;
             return true;
         }
-        if (firstFinger && shopBtn.contains(x, y) && state == PLAYING) {
-            overlay = SHOP;
+        if (firstFinger && shopBtn.contains(x, y)) {
+            // The same corner is the shop while playing and the wardrobe otherwise.
+            overlay = state == PLAYING ? SHOP : WARDROBE;
             return true;
         }
         if (state == OVER) {
-            if (firstFinger && now - overAt > 1.2f) newGame();
+            if (firstFinger && now - overAt > 1.2f) {
+                if (shareBtn.contains(x, y)) shareRecord();
+                else newGame();
+            }
             return true;
         }
         if (state == READY) newGame();
@@ -332,6 +378,13 @@ public class WackelView extends View {
         starsCaught = 0;
         goodie = -1;
         goodiesCaught = 0;
+        bossActive = false;
+        bossesBeaten = 0;
+        nextBossAt = 75f + rnd.nextFloat() * 20f;
+        dailyDoneNow = false;
+        feverReached = false;
+        symmetryCount = 0;
+        talerThisGame = 0;
         stinkDodged = 0;
         nextGoodieAt = 10f + rnd.nextFloat() * 8f;
         java.util.Arrays.fill(boostUntil, 0f);
@@ -354,6 +407,7 @@ public class WackelView extends View {
                 (rnd.nextFloat() - 0.5f) * 50f, now};
         tapBurst(x, y);
         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+        if (bossActive) hitBoss();
         if (chordOpen) {
             // Another finger of the same grip: it raises the grip's multiplier, no points of its own.
             if (left) chordLeft++;
@@ -490,7 +544,10 @@ public class WackelView extends View {
 
         special(Awards.TWO_FINGERS);
         int lo = Math.min(chordLeft, chordRight), hi = Math.max(chordLeft, chordRight);
-        if (lo == 2 && hi == 2) special(Awards.SYMMETRY);
+        if (lo == 2 && hi == 2) {
+            special(Awards.SYMMETRY);
+            symmetryCount++;
+        }
         if (lo == 1 && hi == 3) special(Awards.PISA);
         if (lo == 3 && hi == 3) special(Awards.WITCH);
         if (lo == 4 && hi == 4) special(Awards.OCTOPUS);
@@ -554,6 +611,8 @@ public class WackelView extends View {
         updateFever(dt);
         updateStar(dt);
         updateGoodie(dt);
+        updateBoss();
+        updateDaily();
 
         if (counter < 0) {
             wasNegative = true;
@@ -589,6 +648,7 @@ public class WackelView extends View {
                 flashUntil = now + 0.2f;
                 Synth.melody(new float[]{523, 659, 784, 659, 784, 1047}, 0.06f);
                 special(Awards.FEVER);
+                feverReached = true;
             }
             return;
         }
@@ -637,13 +697,141 @@ public class WackelView extends View {
     }
 
     /** How loud the music should be right now: quiet in menus, louder when things heat up. */
+    private int musicSong() {
+        if (state != PLAYING) return MetalLoop.MENU;
+        return fever || bossActive ? MetalLoop.FEVER : MetalLoop.GAME;
+    }
+
     private float musicLevel() {
         if (overlay != NO_OVERLAY) return 0.15f;
-        if (state == READY) return 0.3f;
-        if (state == OVER) return 0.12f;
+        if (state == PLAYING && bossActive) return 0.85f;
+        if (state == READY) return 0.35f;
+        if (state == OVER) return 0.25f;
         if (fever || now < discoUntil) return 0.75f;
         if (counter < 0) return 0.6f;
         return 0.3f + 0.25f * Math.min(1f, tapRate(2f) / 6f);
+    }
+
+    private void updateBoss() {
+        if (!bossActive && goodie < 0 && playTime >= nextBossAt) {
+            bossActive = true;
+            bossMaxHp = bossHp = 60 + 25 * bossesBeaten;
+            bossEnd = playTime + BOSS_SECONDS;
+            bossName = BOSS_NAMES[rnd.nextInt(BOSS_NAMES.length)];
+            queueBanner("BOSS-POPO!", bossName + " · " + bossMaxHp + " Klatscher in 20 s!", PURPLE);
+            Synth.melody(new float[]{98, 0, 98, 0, 117, 98}, 0.1f);
+            shakeUntil = now + 0.6f;
+            vibrate(new long[]{0, 200, 80, 200});
+        }
+        if (bossActive && playTime >= bossEnd) {
+            bossActive = false;
+            nextBossAt = playTime + 100f + rnd.nextFloat() * 40f;
+            word("Boss entkommen!", popoX, popoY - popoR * 1.5f, Color.WHITE, 1.2f, 4);
+            Synth.melody(new float[]{392, 370, 349, 330}, 0.12f);
+        }
+    }
+
+    /** Every finger on the popo takes one point off the boss. */
+    private void hitBoss() {
+        bossHp--;
+        bossHitAt = now;
+        if (bossHp > 0) return;
+        bossActive = false;
+        bossesBeaten++;
+        nextBossAt = playTime + 100f + rnd.nextFloat() * 40f;
+        double bonus = 25 * drainRate() + 20 * shop.tapGain(false);
+        counter += bonus;
+        total += bonus;
+        long taler = 10 + 5L * bossesBeaten;
+        wardrobe.addTaler(taler);
+        talerThisGame += taler;
+        String loot = rnd.nextFloat() < 0.35f ? wardrobe.gift(rnd) : null;
+        queueBanner("BOSS BESIEGT!", "+" + fmt(bonus) + " · +" + taler + " Taler" + (loot != null ? " · Beute: " + loot : ""), GOLD);
+        confetti(90);
+        for (int k = 0; k < 4; k++) {
+            pendingBursts.add(new float[]{now + k * 0.25f, getWidth() * (0.15f + 0.7f * rnd.nextFloat()),
+                    getHeight() * (0.12f + 0.3f * rnd.nextFloat())});
+        }
+        crownUntil = now + 15f;
+        startMove(MOVE_FLIP, 1.2f, 1f, 4);
+        Synth.melody(new float[]{392, 523, 659, 784, 1047, 1319, 1568}, 0.09f);
+        vibrate(new long[]{0, 80, 50, 80, 50, 300});
+        special(Awards.BOSS_1);
+        if (bossesBeaten >= 3) special(Awards.BOSS_3);
+    }
+
+    /** How far today's challenge is in this game. */
+    private double dailyProgress() {
+        switch (daily.kind()) {
+            case Daily.GOODIES:
+                return goodiesCaught;
+            case Daily.SURVIVE:
+                return playTime;
+            case Daily.KLATSCHER:
+                return total;
+            case Daily.BOSS:
+                return bossesBeaten;
+            case Daily.SYMMETRY:
+                return symmetryCount;
+            case Daily.FEVER:
+                return feverReached ? 1 : 0;
+            case Daily.UPGRADES:
+                return upgradesBought;
+            case Daily.NO_SHOP:
+                return upgradesBought == 0 ? playTime : 0;
+            case Daily.STARS:
+                return starsCaught;
+            default:
+                return stinkDodged;
+        }
+    }
+
+    private void updateDaily() {
+        if (dailyDoneNow || daily.doneToday()) return;
+        if (dailyProgress() < Daily.GOALS[daily.kind()]) return;
+        dailyDoneNow = true;
+        int taler = daily.complete();
+        wardrobe.addTaler(taler);
+        talerThisGame += taler;
+        queueBanner("TAGES-CHALLENGE GESCHAFFT!", "+" + taler + " Taler · 🔥 " + daily.streak() + " Tage in Folge", GREEN);
+        confetti(60);
+        Synth.melody(new float[]{523, 659, 784, 1047}, 0.09f);
+    }
+
+    /** Paints a picture of this game's result and offers it to WhatsApp and co. */
+    private void shareRecord() {
+        try {
+            int bw = 1080, bh = 1350;
+            android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(bw, bh, android.graphics.Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(bmp);
+            Paint grad = new Paint();
+            grad.setShader(new RadialGradient(bw / 2f, bh / 2f, bh * 0.7f, 0xFFFFF176, 0xFFFFB300, Shader.TileMode.CLAMP));
+            c.drawRect(0, 0, bw, bh, grad);
+            drawOutlined(c, "Wackel-Popo", bw / 2f, 150, 110, INK, 0);
+            float savedEnergy = energy;
+            energy = 0.8f;
+            drawPopo(c, bw / 2f, 560, 210, 1.2f);
+            energy = savedEnergy;
+            drawOutlined(c, fmt(total) + " Klatscher", bw / 2f, 1010, fit(fmt(total) + " Klatscher", 120, bw * 0.9f), GOLD, 0);
+            String line1 = newRecord ? "NEUER REKORD!" : (lastPlace > 0 ? "Platz " + lastPlace + " in meiner Bestenliste" : "Gleich nochmal!");
+            drawOutlined(c, line1, bw / 2f, 1120, fit(line1, 64, bw * 0.9f), Color.WHITE, 0);
+            String quote = SHARE_LINES[rnd.nextInt(SHARE_LINES.length)];
+            drawOutlined(c, quote, bw / 2f, 1240, fit(quote, 56, bw * 0.9f), INK, 0);
+            java.io.FileOutputStream out = new java.io.FileOutputStream(ShareProvider.file(getContext()));
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out);
+            out.close();
+            bmp.recycle();
+
+            android.content.Intent send = new android.content.Intent(android.content.Intent.ACTION_SEND);
+            send.setType("image/png");
+            send.putExtra(android.content.Intent.EXTRA_STREAM, ShareProvider.URI);
+            send.putExtra(android.content.Intent.EXTRA_TEXT, "Ich hab " + fmt(total) + " Klatscher beim Wackel-Popo geschafft! " + quote);
+            send.setClipData(android.content.ClipData.newRawUri("", ShareProvider.URI));
+            send.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContext().startActivity(android.content.Intent.createChooser(send, "Rekord teilen"));
+        } catch (Exception e) {
+            word("Teilen klappt gerade nicht", popoX, popoY, RED, 1f, 0);
+        }
     }
 
     private boolean boosted(int g) {
@@ -757,6 +945,9 @@ public class WackelView extends View {
         fever = false;
         starActive = false;
         goodie = -1;
+        bossActive = false;
+        talerThisGame += (long) (total / 500);
+        wardrobe.addTaler((long) (total / 500));
         awards.setLifetime(lifetimeBase + total);
         int score = (int) Math.min(Integer.MAX_VALUE, total);
         int best = scores.best();
@@ -1118,7 +1309,8 @@ public class WackelView extends View {
         }
         c.save();
         c.translate(0, offsetY);
-        c.scale(giant, giant, popoX, popoY);
+        float big = giant * (bossActive ? 1.2f : 1f);
+        c.scale(big, big, popoX, popoY);
         applyMove(c);
         if (flame) drawFlame(c, popoX, popoY + popoR * 2.45f, popoR);
         drawPopo(c, popoX, popoY, popoR, phase);
@@ -1134,8 +1326,9 @@ public class WackelView extends View {
         drawParticles(c);
         if (starActive) drawBonusStar(c);
         if (goodie >= 0) drawGoodie(c);
-        Music.setLevel(musicLevel());
+        Music.set(musicSong(), musicLevel());
         if (state == PLAYING) drawBoosts(c);
+        if (bossActive) drawBossBar(c, w, h);
         drawHud(c, w, h);
         drawButtons(c);
         drawBanner(c, w, h);
@@ -1145,6 +1338,7 @@ public class WackelView extends View {
         if (state == OVER && overlay == NO_OVERLAY) drawGameOver(c, w, h);
         if (overlay == SHOP) drawShop(c, w, h);
         if (overlay == TROPHY) drawTrophyScreen(c, w, h);
+        if (overlay == WARDROBE) drawWardrobe(c, w, h);
 
         postInvalidateOnAnimation();
     }
@@ -1439,7 +1633,10 @@ public class WackelView extends View {
             drawOutlined(c, "Tippen zum Starten!", w / 2f, h * 0.79f, unit * 0.075f, ink, 0);
             smallText(c, "Klatsch den Counter hoch, er sinkt von allein.", w / 2f, h * 0.835f, ink);
             smallText(c, "Mehrere Finger gleichzeitig = Griff-Bonus!", w / 2f, h * 0.87f, ink);
-            smallText(c, "Unter -10 ist Schluss. Upgrades gibt's im Shop.", w / 2f, h * 0.905f, ink);
+            String challenge = daily.doneToday()
+                    ? "✔ Tages-Challenge geschafft · 🔥 " + daily.streak() + " Tage in Folge"
+                    : "Tages-Challenge: " + Daily.TEXTS[daily.kind()] + " (+" + daily.reward() + " Taler)";
+            smallText(c, challenge, w / 2f, h * 0.905f, daily.doneToday() ? GREEN : ink);
             smallText(c, "Awards: " + awards.unlockedCount() + " von " + Awards.TOTAL + "   ·   Rekord: " + fmt(scores.best()), w / 2f, h * 0.945f, ink);
             return;
         }
@@ -1519,8 +1716,15 @@ public class WackelView extends View {
         text.setTextSize(musicBtn.width() * 0.55f);
         text.setColor(INK);
         c.drawText(musicOn ? "🎸" : "🔇", musicBtn.centerX(), musicBtn.centerY() + musicBtn.width() * 0.2f, text);
-        if (state != PLAYING) return;
         drawButtonFrame(c, shopBtn);
+        if (state != PLAYING) {
+            text.setStyle(Paint.Style.FILL);
+            text.setTextAlign(Paint.Align.CENTER);
+            text.setTextSize(shopBtn.width() * 0.55f);
+            text.setColor(INK);
+            c.drawText("👕", shopBtn.centerX(), shopBtn.centerY() + shopBtn.width() * 0.2f, text);
+            return;
+        }
         text.setStyle(Paint.Style.FILL);
         text.setTextAlign(Paint.Align.CENTER);
         text.setTextSize(shopBtn.width() * 0.55f);
@@ -1814,6 +2018,20 @@ public class WackelView extends View {
             text.setColor(INK);
             c.drawText(lastPlace > 0 ? "Platz " + lastPlace + " in der Bestenliste" : "Nicht in den Top " + HighscoreStore.MAX_ENTRIES, w / 2f, y, text);
         }
+        y += unit * 0.065f;
+        text.setTextSize(unit * 0.04f);
+        text.setColor(INK);
+        c.drawText("+" + fmt(talerThisGame) + " Popo-Taler für die Garderobe", w / 2f, y, text);
+        float bw = unit * 0.42f, bh = unit * 0.085f;
+        shareBtn.set(w / 2f - bw / 2f, box.bottom - unit * 0.2f, w / 2f + bw / 2f, box.bottom - unit * 0.2f + bh);
+        fill.setColor(GREEN);
+        c.drawRoundRect(shareBtn, bh / 2, bh / 2, fill);
+        line.setColor(INK);
+        line.setStrokeWidth(unit * 0.006f);
+        c.drawRoundRect(shareBtn, bh / 2, bh / 2, line);
+        text.setColor(Color.WHITE);
+        text.setTextSize(unit * 0.045f);
+        c.drawText("📤 Rekord teilen", w / 2f, shareBtn.centerY() + unit * 0.016f, text);
         if (t > 1.2f) {
             text.setTextSize(unit * 0.042f);
             text.setColor(INK);
@@ -2028,6 +2246,7 @@ public class WackelView extends View {
         if (state == PLAYING && counter < 0) {
             return blend(SKIN, SKIN_COLD, (float) Math.min(1, -counter / -GAME_OVER_AT) * 0.8f);
         }
+        if (bossActive) return blend(0xFFCE93D8, Color.WHITE, now - bossHitAt < 0.08f ? 0.6f : 0f);
         if (fever) return blend(SKIN, SKIN_HOT, 0.35f + 0.15f * (float) Math.sin(now * 8));
         return SKIN;
     }
@@ -2110,7 +2329,10 @@ public class WackelView extends View {
         c.drawCircle(lx - a * 0.2f, leftY + b * 0.2f, r * 0.2f, fill);
         c.drawCircle(rx + a * 0.2f, rightY + b * 0.2f, r * 0.2f, fill);
 
-        if (now < crownUntil) drawCrown(c, cx, Math.min(leftY, rightY) - b * 0.72f, r, stroke);
+        drawGlasses(c, bossActive ? 1 : wardrobe.worn(Wardrobe.GLASSES), lx, rx, leftY, rightY, a, b, stroke);
+        float hatBase = Math.min(leftY, rightY) - b * 0.72f;
+        if (now < crownUntil) drawCrown(c, cx, hatBase, r, stroke);
+        else drawHat(c, bossActive ? 5 : wardrobe.worn(Wardrobe.HATS), cx, hatBase, r, stroke);
 
         c.restore();
         c.restore();
@@ -2145,6 +2367,197 @@ public class WackelView extends View {
             c.restore();
         }
         fill.setAlpha(255);
+    }
+
+    private void drawHat(Canvas c, int hat, float cx, float base, float r, float stroke) {
+        if (hat == 0) return;
+        line.setColor(INK);
+        line.setStrokeWidth(stroke * 0.8f);
+        switch (hat) {
+            case 1: // cap
+                rect.set(cx - r * 0.5f, base - r * 0.5f, cx + r * 0.5f, base + r * 0.5f);
+                fill.setColor(0xFFE53935);
+                c.drawArc(rect, 180, 180, true, fill);
+                c.drawArc(rect, 180, 180, true, line);
+                rect.set(cx + r * 0.2f, base - r * 0.08f, cx + r * 0.95f, base + r * 0.06f);
+                c.drawRoundRect(rect, r * 0.07f, r * 0.07f, fill);
+                c.drawRoundRect(rect, r * 0.07f, r * 0.07f, line);
+                break;
+            case 2: // party hat
+                path.reset();
+                path.moveTo(cx - r * 0.38f, base);
+                path.lineTo(cx, base - r * 0.95f);
+                path.lineTo(cx + r * 0.38f, base);
+                path.close();
+                fill.setColor(0xFF42A5F5);
+                c.drawPath(path, fill);
+                line.setColor(0xFFFFEB3B);
+                for (int i = 1; i <= 2; i++) {
+                    float y = base - r * 0.3f * i, hw = r * 0.38f * (1 - 0.3f * i / 0.95f);
+                    c.drawLine(cx - hw, y, cx + hw, y, line);
+                }
+                line.setColor(INK);
+                c.drawPath(path, line);
+                fill.setColor(0xFFFF4081);
+                c.drawCircle(cx, base - r * 0.95f, r * 0.1f, fill);
+                break;
+            case 3: // cowboy hat
+                fill.setColor(0xFF8D6E63);
+                rect.set(cx - r * 1.0f, base - r * 0.16f, cx + r * 1.0f, base + r * 0.12f);
+                c.drawOval(rect, fill);
+                c.drawOval(rect, line);
+                rect.set(cx - r * 0.42f, base - r * 0.62f, cx + r * 0.42f, base);
+                c.drawRoundRect(rect, r * 0.2f, r * 0.2f, fill);
+                c.drawRoundRect(rect, r * 0.2f, r * 0.2f, line);
+                fill.setColor(0xFF4E342E);
+                c.drawRect(cx - r * 0.42f, base - r * 0.16f, cx + r * 0.42f, base - r * 0.04f, fill);
+                break;
+            case 4: // top hat
+                fill.setColor(0xFF212121);
+                rect.set(cx - r * 0.7f, base - r * 0.1f, cx + r * 0.7f, base + r * 0.06f);
+                c.drawRoundRect(rect, r * 0.05f, r * 0.05f, fill);
+                rect.set(cx - r * 0.4f, base - r * 0.9f, cx + r * 0.4f, base - r * 0.05f);
+                c.drawRect(rect, fill);
+                fill.setColor(0xFFE53935);
+                c.drawRect(cx - r * 0.4f, base - r * 0.28f, cx + r * 0.4f, base - r * 0.14f, fill);
+                line.setColor(Color.WHITE);
+                line.setStrokeWidth(stroke * 0.4f);
+                c.drawLine(cx - r * 0.3f, base - r * 0.8f, cx - r * 0.3f, base - r * 0.4f, line);
+                line.setColor(INK);
+                break;
+            default: // viking helmet, also worn by every boss
+                fill.setColor(0xFFF5F5F5);
+                for (int side = -1; side <= 1; side += 2) {
+                    path.reset();
+                    path.moveTo(cx + side * r * 0.4f, base - r * 0.2f);
+                    path.quadTo(cx + side * r * 0.95f, base - r * 0.35f, cx + side * r * 0.85f, base - r * 0.95f);
+                    path.quadTo(cx + side * r * 0.7f, base - r * 0.45f, cx + side * r * 0.35f, base - r * 0.42f);
+                    path.close();
+                    c.drawPath(path, fill);
+                    c.drawPath(path, line);
+                }
+                rect.set(cx - r * 0.55f, base - r * 0.6f, cx + r * 0.55f, base + r * 0.5f);
+                fill.setColor(0xFF90A4AE);
+                c.drawArc(rect, 180, 180, true, fill);
+                c.drawArc(rect, 180, 180, true, line);
+                fill.setColor(0xFFFFC107);
+                c.drawRect(cx - r * 0.55f, base - r * 0.1f, cx + r * 0.55f, base + r * 0.02f, fill);
+                fill.setColor(0xFF607D8B);
+                for (int i = -2; i <= 2; i++) c.drawCircle(cx + i * r * 0.2f, base - r * 0.04f, r * 0.035f, fill);
+                break;
+        }
+        line.setStrokeWidth(stroke);
+    }
+
+    /** Glasses sit across the upper cheeks, which makes the popo look like a face. */
+    private void drawGlasses(Canvas c, int kind, float lx, float rx, float ly, float ry, float a, float b, float stroke) {
+        if (kind == 0) return;
+        float gy = Math.min(ly, ry) - b * 0.18f, lr = a * 0.34f;
+        float l = lx + a * 0.22f, rr = rx - a * 0.22f;
+        line.setColor(INK);
+        line.setStrokeWidth(stroke * (kind == 2 ? 1.1f : 0.7f));
+        c.drawLine(l + lr, gy, rr - lr, gy, line);
+        for (float gx : new float[]{l, rr}) {
+            switch (kind) {
+                case 1: // sunglasses
+                    fill.setColor(0xFF212121);
+                    rect.set(gx - lr, gy - lr * 0.7f, gx + lr, gy + lr * 0.7f);
+                    c.drawRoundRect(rect, lr * 0.4f, lr * 0.4f, fill);
+                    fill.setColor(0x66FFFFFF);
+                    c.drawCircle(gx - lr * 0.4f, gy - lr * 0.25f, lr * 0.18f, fill);
+                    break;
+                case 2: // nerd glasses
+                    fill.setColor(0x99E1F5FE);
+                    c.drawCircle(gx, gy, lr * 0.85f, fill);
+                    c.drawCircle(gx, gy, lr * 0.85f, line);
+                    break;
+                default: // heart glasses
+                    fill.setColor(0xFFFF1744);
+                    float hs = lr * 1.1f;
+                    path.reset();
+                    path.moveTo(gx, gy + hs * 0.7f);
+                    path.cubicTo(gx - hs * 1.2f, gy - hs * 0.1f, gx - hs * 0.5f, gy - hs * 0.9f, gx, gy - hs * 0.35f);
+                    path.cubicTo(gx + hs * 0.5f, gy - hs * 0.9f, gx + hs * 1.2f, gy - hs * 0.1f, gx, gy + hs * 0.7f);
+                    path.close();
+                    c.drawPath(path, fill);
+                    line.setStrokeWidth(stroke * 0.5f);
+                    c.drawPath(path, line);
+                    break;
+            }
+        }
+        line.setStrokeWidth(stroke);
+    }
+
+    /** Boss health bar and timer under the title. */
+    private void drawBossBar(Canvas c, float w, float h) {
+        float bw = unit * 0.7f, bh = unit * 0.05f, bx = w / 2f - bw / 2f, by = h * 0.215f;
+        String label = "👿 " + bossName + "  ·  " + (int) Math.ceil(Math.max(0, bossEnd - playTime)) + " s";
+        drawOutlined(c, label, w / 2f, by - unit * 0.015f, fit(label, unit * 0.045f, w * 0.9f), Color.WHITE, 0);
+        fill.setColor(0x66000000);
+        rect.set(bx, by, bx + bw, by + bh);
+        c.drawRoundRect(rect, bh / 2, bh / 2, fill);
+        fill.setColor(PURPLE);
+        rect.set(bx, by, bx + Math.max(bh, bw * bossHp / (float) bossMaxHp), by + bh);
+        c.drawRoundRect(rect, bh / 2, bh / 2, fill);
+        line.setColor(INK);
+        line.setStrokeWidth(unit * 0.006f);
+        rect.set(bx, by, bx + bw, by + bh);
+        c.drawRoundRect(rect, bh / 2, bh / 2, line);
+    }
+
+    private void drawWardrobe(Canvas c, float w, float h) {
+        drawCard(c, card);
+        float y = card.top + unit * 0.09f;
+        String title = "👕 Garderobe";
+        drawOutlined(c, title, w / 2f, y, unit * 0.065f, GOLD, 0);
+        y += unit * 0.06f;
+        text.setStyle(Paint.Style.FILL);
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setColor(INK);
+        text.setTextSize(unit * 0.04f);
+        c.drawText("🪙 " + fmt(wardrobe.taler()) + " Popo-Taler", w / 2f, y, text);
+        y += unit * 0.03f;
+        int cols = 5;
+        float cell = card.width() * 0.9f / cols, left = w / 2f - cell * cols / 2f;
+        for (int cat = 0; cat < Wardrobe.ITEMS.length; cat++) {
+            y += unit * 0.055f;
+            text.setTextAlign(Paint.Align.LEFT);
+            text.setTextSize(unit * 0.04f);
+            text.setColor(INK);
+            c.drawText(Wardrobe.CATEGORIES[cat], left, y, text);
+            y += unit * 0.015f;
+            int worn = wardrobe.worn(cat);
+            for (int i = 0; i < Wardrobe.ITEMS[cat].length; i++) {
+                float x0 = left + (i % cols) * cell, y0 = y + (i / cols) * cell;
+                RectF r = wardrobeCells[cat][i];
+                r.set(x0 + cell * 0.05f, y0 + cell * 0.05f, x0 + cell * 0.95f, y0 + cell * 0.95f);
+                boolean owned = wardrobe.owned(cat, i);
+                fill.setColor(i == worn ? 0xFFC8E6C9 : (owned ? Color.WHITE : 0xFFEEEEEE));
+                c.drawRoundRect(r, cell * 0.15f, cell * 0.15f, fill);
+                line.setColor(i == worn ? GREEN : INK);
+                line.setStrokeWidth(unit * (i == worn ? 0.008f : 0.004f));
+                c.drawRoundRect(r, cell * 0.15f, cell * 0.15f, line);
+                String[] item = Wardrobe.ITEMS[cat][i];
+                text.setTextAlign(Paint.Align.CENTER);
+                text.setColor(INK);
+                text.setAlpha(owned ? 255 : 140);
+                text.setTextSize(cell * 0.38f);
+                c.drawText(item[0], r.centerX(), r.top + cell * 0.45f, text);
+                text.setAlpha(255);
+                text.setTextSize(fit(item[1], cell * 0.15f, r.width() * 0.92f));
+                c.drawText(item[1], r.centerX(), r.top + cell * 0.66f, text);
+                String status = i == worn ? "an" : (owned ? "" : "🪙 " + item[2]);
+                text.setTextSize(cell * 0.14f);
+                text.setColor(i == worn ? GREEN : INK);
+                c.drawText(status, r.centerX(), r.top + cell * 0.83f, text);
+            }
+            y += cell * ((Wardrobe.ITEMS[cat].length + cols - 1) / cols);
+        }
+        text.setColor(INK);
+        text.setTextSize(unit * 0.033f);
+        text.setAlpha(170);
+        c.drawText("Taler gibt's fürs Spielen, für Bosse und Tages-Challenges.", w / 2f, card.bottom - unit * 0.04f, text);
+        text.setAlpha(255);
     }
 
     private void drawCrown(Canvas c, float cx, float base, float r, float stroke) {
@@ -2207,7 +2620,8 @@ public class WackelView extends View {
         float left = cx - r * 1.6f;
         float width = r * 3.2f;
         RectF shorts = new RectF(left, shortsTop, left + width, shortsTop + shortsH);
-        fill.setColor(SHORTS_COLORS[outfit % SHORTS_COLORS.length]);
+        int wornShorts = wardrobe.worn(Wardrobe.SHORTS);
+        fill.setColor(wornShorts > 0 ? SHORTS_COLORS[wornShorts - 1] : SHORTS_COLORS[outfit % SHORTS_COLORS.length]);
         c.drawRoundRect(shorts, r * 0.25f, r * 0.25f, fill);
         c.save();
         path.reset();

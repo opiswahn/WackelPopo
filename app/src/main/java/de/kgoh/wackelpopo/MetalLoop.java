@@ -3,12 +3,15 @@ package de.kgoh.wackelpopo;
 import java.util.Random;
 
 /**
- * Renders the background track: 16 bars of 80s-style metal in E minor at 152 BPM, made from a
- * galloping distorted guitar, bass, drums and a square-wave lead with echo. Pure Java, no files.
+ * Renders the background tracks: 16 bars of 80s-style metal in E minor, made from a galloping
+ * distorted guitar, bass, drums and a square-wave lead with echo. Pure Java, no files.
+ * GAME is the main song, FEVER a faster one with double bass and lead all the way through,
+ * MENU a calm clean-guitar version of the same chords.
  */
 public final class MetalLoop {
     public static final int RATE = 22050;
-    private static final double BPM = 152;
+    public static final int GAME = 0, FEVER = 1, MENU = 2;
+    private static final double[] BPM = {152, 176, 104};
     private static final double E2 = 82.41;
     /** Power-chord root of each bar, in semitones above low E: E E C D | E E G A, twice. */
     private static final int[] ROOTS = {0, 0, 8, 10, 0, 0, 3, 5, 0, 0, 8, 10, 0, 0, 3, 5};
@@ -20,8 +23,9 @@ public final class MetalLoop {
     private MetalLoop() {
     }
 
-    public static short[] render() {
-        double step = 60.0 / BPM / 4;
+    public static short[] render(int song) {
+        boolean fever = song == FEVER, menu = song == MENU;
+        double step = 60.0 / BPM[song] / 4;
         int bars = ROOTS.length;
         int len = (int) Math.round(bars * 16 * step * RATE);
         float[] mix = new float[len];
@@ -29,10 +33,21 @@ public final class MetalLoop {
         Random noise = new Random(42);
 
         for (int bar = 0; bar < bars; bar++) {
-            boolean partB = bar >= 8;
-            double root = E2 * Math.pow(2, ROOTS[bar] / 12.0);
+            boolean partB = bar >= 8 || fever;
+            // The fever song sits a whole tone higher, which makes it sound more urgent.
+            double root = E2 * Math.pow(2, (ROOTS[bar] + (fever ? 2 : 0)) / 12.0);
             for (int s = 0; s < 16; s++) {
                 int at = (int) Math.round((bar * 16 + s) * step * RATE);
+                if (menu) {
+                    // Clean, gentle arpeggio over the same chords, a soft hat and a kick on one.
+                    int[] triad = TRIADS[bar % 8];
+                    int semi = LEAD_PATTERN[s] == 3 ? triad[0] + 12 : triad[LEAD_PATTERN[s]];
+                    pluck(mix, at, 164.81 * Math.pow(2, semi / 12.0), step * 3);
+                    if (s % 4 == 0) bass(mix, at, root / 2, step * 3.5);
+                    if (s == 0) kick(mix, at);
+                    if (s % 4 == 2) hat(mix, at, noise, 0.05);
+                    continue;
+                }
                 int k = s % 4;
                 // Gallop: an eighth and two sixteenths; the first hit of each half bar rings a bit longer.
                 if (k != 1) {
@@ -40,7 +55,7 @@ public final class MetalLoop {
                     guitar(mix, at, root, (ring ? 2 : 1) * step * 0.92, ring);
                 }
                 if (s % 2 == 0) bass(mix, at, root / 2, step * 1.8);
-                boolean kick = partB ? s % 2 == 0 : (s == 0 || s == 3 || s == 8 || s == 11);
+                boolean kick = fever || (partB ? s % 2 == 0 : (s == 0 || s == 3 || s == 8 || s == 11));
                 if (kick) kick(mix, at);
                 if (s == 4 || s == 12) snare(mix, at, noise);
                 if (s % 2 == 0) hat(mix, at, noise, s % 4 == 0 ? 0.12 : 0.08);
@@ -48,10 +63,10 @@ public final class MetalLoop {
                     int[] triad = TRIADS[bar % 8];
                     int idx = LEAD_PATTERN[s];
                     int semi = idx == 3 ? triad[0] + 12 : triad[idx];
-                    square(lead, at, 329.63 * Math.pow(2, semi / 12.0), step * 0.95);
+                    square(lead, at, 329.63 * Math.pow(2, (semi + (fever ? 2 : 0)) / 12.0), step * 0.95);
                 }
             }
-            if (bar % 8 == 0) crash(mix, (int) Math.round(bar * 16 * step * RATE), noise);
+            if (!menu && bar % (fever ? 4 : 8) == 0) crash(mix, (int) Math.round(bar * 16 * step * RATE), noise);
         }
 
         // Dotted-eighth echo on the lead, the classic 80s trick.
@@ -133,6 +148,23 @@ public final class MetalLoop {
             double x = noise.nextDouble() * 2 - 1;
             add(out, at + i, 0.13 * (x - prev) * Math.exp(-i / (RATE * 0.45)));
             prev = x;
+        }
+    }
+
+    /** Clean plucked string (Karplus-Strong), for the calm menu song. */
+    private static void pluck(float[] out, int at, double f, double dur) {
+        int n = (int) (dur * RATE);
+        int period = Math.max(2, (int) Math.round(RATE / f));
+        double[] ring = new double[period];
+        Random r = new Random(at);
+        for (int i = 0; i < period; i++) ring[i] = r.nextDouble() * 2 - 1;
+        double lp = 0;
+        for (int i = 0; i < n; i++) {
+            int j = i % period;
+            double v = ring[j];
+            ring[j] = 0.5 * (v + ring[(j + 1) % period]) * 0.996;
+            lp += 0.5 * (v - lp);
+            add(out, at + i, 0.22 * lp * Math.min(1, (n - i) / (RATE * 0.01)));
         }
     }
 

@@ -4,16 +4,19 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 
-/** Loops the MetalLoop soundtrack in the background; rendered once, then streamed over and over. */
+/**
+ * Loops the MetalLoop songs in the background. Songs are rendered once, then streamed over and over;
+ * switching songs fades the old one out and the new one in.
+ */
 public final class Music {
-    /** Volume the music glides towards; the game sets it to match what is happening. */
-    private static volatile float target = 0.4f;
-
-    private static short[] loop;
+    private static final short[][] songs = new short[3][];
     private static AudioTrack track;
     private static volatile boolean running;
     /** Bumped on every start, so a thread left over from an earlier start quits. */
     private static volatile int generation;
+    /** Volume the music glides towards; the game sets it to match what is happening. */
+    private static volatile float target = 0.4f;
+    private static volatile int wanted = MetalLoop.MENU;
 
     private Music() {
     }
@@ -28,7 +31,6 @@ public final class Music {
             public void run() {
                 AudioTrack t = null;
                 try {
-                    if (loop == null) loop = MetalLoop.render();
                     int min = AudioTrack.getMinBufferSize(MetalLoop.RATE, AudioFormat.CHANNEL_OUT_MONO,
                             AudioFormat.ENCODING_PCM_16BIT);
                     t = new AudioTrack(AudioManager.STREAM_MUSIC, MetalLoop.RATE, AudioFormat.CHANNEL_OUT_MONO,
@@ -39,12 +41,20 @@ public final class Music {
                         if (!running || generation != mine) return;
                         track = t;
                     }
+                    int current = wanted;
+                    short[] loop = song(current);
                     t.play();
                     int pos = 0, chunk = 2048;
                     while (running && generation == mine) {
-                        // Glide about a second from one level to the next instead of jumping.
-                        volume += Math.max(-0.006f, Math.min(0.006f, target - volume));
+                        // Glide to the target volume; when the song should change, fade out first.
+                        float goal = wanted != current ? 0 : target;
+                        volume += Math.max(-0.006f, Math.min(0.006f, goal - volume));
                         t.setVolume(volume);
+                        if (wanted != current && volume <= 0.01f) {
+                            current = wanted;
+                            loop = song(current);
+                            pos = 0;
+                        }
                         int n = Math.min(chunk, loop.length - pos);
                         int written = t.write(loop, pos, n, AudioTrack.WRITE_NON_BLOCKING);
                         if (written < 0) break;
@@ -63,8 +73,16 @@ public final class Music {
         }).start();
     }
 
-    /** 0 = silent, 1 = full blast. */
-    public static void setLevel(float level) {
+    private static short[] song(int which) {
+        synchronized (songs) {
+            if (songs[which] == null) songs[which] = MetalLoop.render(which);
+            return songs[which];
+        }
+    }
+
+    /** Which song should play (MetalLoop.GAME, FEVER or MENU) and how loud: 0 = silent, 1 = full blast. */
+    public static void set(int song, float level) {
+        wanted = song;
         target = level;
     }
 
