@@ -75,13 +75,18 @@ public final class Awards {
             {"Stammgast", "Spiele 10 Spiele"},
             {"Popo-Veteran", "Spiele 50 Spiele"},
             {"Sammelwut", "Sammle 50 normale Awards"},
+            {"Goodie-Jäger", "Fang 10 Goodies in einem Spiel"},
+            {"Bescherung", "Öffne ein Geschenk-Goodie"},
+            {"Nasenklammer", "Fang eine Stinkbombe (selbst schuld!)"},
+            {"Ausweichkünstler", "Lass 3 Stinkbomben in einem Spiel fallen"},
     };
 
     public static final int TWO_FINGERS = 0, SYMMETRY = 1, PISA = 2, WITCH = 3, OCTOPUS = 4, TEN_FINGERS = 5,
             RHYTHM = 6, FEVER = 7, LONG_FEVER = 8, TAP_MACHINE = 9, TAPS_1000 = 10, TAPS_5000 = 11,
             SURVIVE_3 = 12, SURVIVE_10 = 13, SURVIVE_20 = 14, CLOSE_CALL = 15, COMEBACK = 16, SHOPPER = 17,
             MISER = 18, SCROOGE = 19, STAR = 20, STARS_5 = 21, LUCKY = 22, MAXED = 23, GOLDEN = 24,
-            NIGHT_OWL = 25, EARLY_BIRD = 26, REGULAR = 27, VETERAN = 28, COLLECTOR = 29;
+            NIGHT_OWL = 25, EARLY_BIRD = 26, REGULAR = 27, VETERAN = 28, COLLECTOR = 29,
+            GOODIE_HUNTER = 30, PRESENT = 31, NOSE_CLIP = 32, DODGER = 33;
 
     public static final int SPECIAL_COUNT = SPECIALS.length;
     public static final int TOTAL = COUNT + SPECIAL_COUNT;

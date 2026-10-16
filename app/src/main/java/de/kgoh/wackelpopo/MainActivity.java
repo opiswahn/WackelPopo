@@ -72,10 +72,17 @@ public class MainActivity extends Activity implements Updater.Listener {
     @Override
     protected void onResume() {
         super.onResume();
+        game.setMusicActive(true);
         if (System.currentTimeMillis() - lastCheck > 10 * 60 * 1000) {
             lastCheck = System.currentTimeMillis();
             updater.check();
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        game.setMusicActive(false);
     }
 
     @Override

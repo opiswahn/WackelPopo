@@ -180,10 +180,20 @@ public class WackelView extends View {
     private float punch;
     private float nextWordAt;
 
+    // Goodies falling from the sky (see Goodies).
+    private int goodie = -1;
+    private float goodieX, goodieY, goodieBaseX, goodieBorn, nextGoodieAt;
+    private int goodiesCaught, stinkDodged;
+    /** playTime until which each timed goodie is active. */
+    private final float[] boostUntil = new float[Goodies.ICONS.length];
+    private boolean musicOn;
+    private final android.content.SharedPreferences settings;
+
     // Layout.
     private float popoX, popoY, popoR, unit;
     private final RectF trophyBtn = new RectF();
     private final RectF shopBtn = new RectF();
+    private final RectF musicBtn = new RectF();
     private final RectF card = new RectF();
     private final RectF closeBtn = new RectF();
     private final RectF[] shopRows = new RectF[Shop.NAMES.length];
@@ -194,6 +204,8 @@ public class WackelView extends View {
         super(context);
         scores = new HighscoreStore(context);
         awards = new Awards(context);
+        settings = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
+        musicOn = settings.getBoolean("music", true);
         for (int i = 0; i < shopRows.length; i++) shopRows[i] = new RectF();
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeCap(Paint.Cap.ROUND);
@@ -214,6 +226,8 @@ public class WackelView extends View {
         float s = unit * 0.13f, m = unit * 0.04f, top = h * 0.035f;
         trophyBtn.set(w - s - m, top, w - m, top + s);
         shopBtn.set(m, top, m + s, top + s);
+        float ms = s * 0.75f;
+        musicBtn.set(w - m - ms, top + s + m * 0.5f, w - m, top + s + m * 0.5f + ms);
         card.set(unit * 0.05f, h * 0.1f, w - unit * 0.05f, h * 0.92f);
     }
 
@@ -243,11 +257,19 @@ public class WackelView extends View {
             } else if (tabs[1].contains(x, y)) {
                 trophyTab = 1;
             } else if (trophyTab == 1 && x >= gridLeft && y >= gridTop && x < gridLeft + gridCell * 10
-                    && y < gridTop + gridCell * (Awards.TOTAL / 10)) {
-                selectedAward = (int) ((y - gridTop) / gridCell) * 10 + (int) ((x - gridLeft) / gridCell);
+                    && y < gridTop + gridCell * ((Awards.TOTAL + 9) / 10)) {
+                int picked = (int) ((y - gridTop) / gridCell) * 10 + (int) ((x - gridLeft) / gridCell);
+                if (picked < Awards.TOTAL) selectedAward = picked;
             } else {
                 overlay = NO_OVERLAY;
             }
+            return true;
+        }
+        if (firstFinger && musicBtn.contains(x, y)) {
+            musicOn = !musicOn;
+            settings.edit().putBoolean("music", musicOn).apply();
+            if (musicOn) Music.start();
+            else Music.stop();
             return true;
         }
         if (firstFinger && trophyBtn.contains(x, y)) {
@@ -264,12 +286,22 @@ public class WackelView extends View {
             return true;
         }
         if (state == READY) newGame();
+        if (goodie >= 0 && Math.hypot(x - goodieX, y - goodieY) < unit * 0.1f) {
+            catchGoodie();
+            return true;
+        }
         if (starActive && Math.hypot(x - starX, y - starY) < unit * 0.11f) {
             catchStar();
             return true;
         }
         klatsch(x, y);
         return true;
+    }
+
+    /** Called by the activity when it comes to the front or leaves it. */
+    public void setMusicActive(boolean active) {
+        if (active && musicOn) Music.start();
+        else Music.stop();
     }
 
     /** True while a round is running; the update pill hides then. */
@@ -298,6 +330,11 @@ public class WackelView extends View {
         feverCharge = 0;
         starActive = false;
         starsCaught = 0;
+        goodie = -1;
+        goodiesCaught = 0;
+        stinkDodged = 0;
+        nextGoodieAt = 10f + rnd.nextFloat() * 8f;
+        java.util.Arrays.fill(boostUntil, 0f);
         nextStarAt = 20f + rnd.nextFloat() * 15f;
         shop.reset();
         crownUntil = -100f;
@@ -328,8 +365,8 @@ public class WackelView extends View {
         boolean fast = now - lastTap < FAST_TAP_S;
         lastTap = now;
         taps++;
-        double gain = shop.tapGain(fast) * (fever ? FEVER_BONUS : 1);
-        boolean crit = rnd.nextDouble() < shop.critChance();
+        double gain = shop.tapGain(fast) * (fever ? FEVER_BONUS : 1) * (boosted(Goodies.CHOCO) ? 2 : 1);
+        boolean crit = rnd.nextDouble() < shop.critChance() + (boosted(Goodies.CLOVER) ? 0.25 : 0);
         if (crit) {
             gain *= CRIT_FACTOR;
             critStreak++;
@@ -509,13 +546,14 @@ public class WackelView extends View {
         }
         if (state != PLAYING) return;
         playTime += dt;
-        double auto = shop.autoRate();
+        double auto = autoRate();
         counter += (auto - drainRate()) * dt;
         total += auto * dt;
         while (nextAward < Awards.COUNT && lifetimeBase + total >= Awards.threshold(nextAward)) award(nextAward++);
 
         updateFever(dt);
         updateStar(dt);
+        updateGoodie(dt);
 
         if (counter < 0) {
             wasNegative = true;
@@ -598,7 +636,107 @@ public class WackelView extends View {
         if (now - starBorn > 5f) starActive = false;
     }
 
+    private boolean boosted(int g) {
+        return state == PLAYING && playTime < boostUntil[g];
+    }
+
+    private double autoRate() {
+        return shop.autoRate() + (boosted(Goodies.ROBOT) ? 3 * shop.goldMultiplier() : 0);
+    }
+
+    /** Drops a goodie every 15-30 seconds; it floats down on a parachute for about 5 seconds. */
+    private void updateGoodie(float dt) {
+        float landY = getHeight() * 0.7f;
+        if (goodie < 0 && playTime >= nextGoodieAt) {
+            goodie = Goodies.random(rnd);
+            goodieBorn = now;
+            goodieBaseX = getWidth() * (0.18f + 0.64f * rnd.nextFloat());
+            goodieY = -unit * 0.12f;
+            nextGoodieAt = playTime + 15f + rnd.nextFloat() * 15f;
+            Synth.melody(new float[]{1319, 1047, 1319}, 0.05f);
+        }
+        if (goodie < 0) return;
+        goodieY += (landY + unit * 0.12f) / 5f * dt;
+        goodieX = goodieBaseX + (float) Math.sin((now - goodieBorn) * 2.2f) * unit * 0.06f;
+        if (goodieY >= landY) {
+            // Missed: it lands with a little puff.
+            for (int i = 0; i < 8; i++) {
+                Particle p = spawn(goodieX, landY, SHAPE_PUFF, Color.WHITE, unit * 0.02f, 0.6f);
+                p.vx = (rnd.nextFloat() - 0.5f) * unit * 0.6f;
+                p.grow = unit * 0.05f;
+            }
+            if (goodie == Goodies.STINK) {
+                word("Puh, ausgewichen!", goodieX, landY - unit * 0.05f, GREEN, 0.9f, 0);
+                if (++stinkDodged >= 3) special(Awards.DODGER);
+            }
+            goodie = -1;
+        }
+    }
+
+    private void catchGoodie() {
+        int g = goodie;
+        goodie = -1;
+        String effect = Goodies.EFFECTS[g];
+        int color = GOLD;
+        switch (g) {
+            case Goodies.PEACH: {
+                double bonus = Math.max(15, 4 * drainRate() + 6 * shop.tapGain(false));
+                counter += bonus;
+                total += bonus;
+                effect = "+" + fmt(bonus);
+                hearts(12);
+                break;
+            }
+            case Goodies.GIFT: {
+                int best = -1;
+                for (int i = 0; i < Shop.NAMES.length; i++) {
+                    if (!shop.maxed(i) && (best < 0 || shop.price(i) < shop.price(best))) best = i;
+                }
+                if (best >= 0) {
+                    shop.buy(best);
+                    upgradesBought++;
+                    effect = "Gratis: " + Shop.NAMES[best] + "!";
+                } else {
+                    counter += 100;
+                    total += 100;
+                    effect = "+100";
+                }
+                confetti(25);
+                special(Awards.PRESENT);
+                break;
+            }
+            case Goodies.STINK:
+                counter -= Math.max(0, counter * 0.15);
+                color = 0xFF7CB342;
+                Synth.pups();
+                for (int i = 0; i < 14; i++) {
+                    Particle p = spawn(goodieX, goodieY, SHAPE_PUFF, 0xFF9CCC65, unit * 0.03f, 1.2f);
+                    p.vx = (rnd.nextFloat() - 0.5f) * unit * 0.5f;
+                    p.vy = -unit * 0.1f * rnd.nextFloat();
+                    p.grow = unit * 0.08f;
+                }
+                special(Awards.NOSE_CLIP);
+                break;
+            case Goodies.MAGNET:
+                nextStarAt = playTime;
+                sparkles(12);
+                break;
+            default:
+                boostUntil[g] = playTime + Goodies.SECONDS[g];
+                sparkles(12);
+                break;
+        }
+        if (g != Goodies.STINK) {
+            Synth.melody(new float[]{784, 1047, 1319}, 0.06f);
+            goodiesCaught++;
+            if (goodiesCaught >= 10) special(Awards.GOODIE_HUNTER);
+        }
+        word(Goodies.ICONS[g] + " " + Goodies.NAMES[g], goodieX, goodieY - unit * 0.04f, color, 1f, 1);
+        floatText(effect, goodieX, goodieY + unit * 0.05f, Color.WHITE, 1f, 0);
+    }
+
     private double drainRate() {
+        if (boosted(Goodies.ICE)) return 0;
         return BASE_DRAIN * Math.pow(DRAIN_GROWTH, playTime) * shop.drainFactor();
     }
 
@@ -608,6 +746,7 @@ public class WackelView extends View {
         overAt = now;
         fever = false;
         starActive = false;
+        goodie = -1;
         awards.setLifetime(lifetimeBase + total);
         int score = (int) Math.min(Integer.MAX_VALUE, total);
         int best = scores.best();
@@ -984,6 +1123,8 @@ public class WackelView extends View {
         drawDanger(c, w, h);
         drawParticles(c);
         if (starActive) drawBonusStar(c);
+        if (goodie >= 0) drawGoodie(c);
+        if (state == PLAYING) drawBoosts(c);
         drawHud(c, w, h);
         drawButtons(c);
         drawBanner(c, w, h);
@@ -1214,6 +1355,54 @@ public class WackelView extends View {
         }
     }
 
+    /** The falling goodie, hanging from a little parachute. */
+    private void drawGoodie(Canvas c) {
+        float s = unit * 0.075f;
+        float sway = (float) Math.sin((now - goodieBorn) * 2.2f + 1.2f) * 12f;
+        c.save();
+        c.rotate(sway, goodieX, goodieY);
+        float top = goodieY - s * 2.6f;
+        line.setColor(INK);
+        line.setStrokeWidth(s * 0.05f);
+        c.drawLine(goodieX - s * 1.1f, top, goodieX - s * 0.3f, goodieY - s * 0.6f, line);
+        c.drawLine(goodieX + s * 1.1f, top, goodieX + s * 0.3f, goodieY - s * 0.6f, line);
+        rect.set(goodieX - s * 1.15f, top - s * 0.9f, goodieX + s * 1.15f, top + s * 0.9f);
+        fill.setColor(goodie == Goodies.STINK ? 0xFF9CCC65 : PARTY[goodie % PARTY.length]);
+        c.drawArc(rect, 180, 180, true, fill);
+        line.setStrokeWidth(s * 0.08f);
+        c.drawArc(rect, 180, 180, true, line);
+        fill.setColor(Color.WHITE);
+        fill.setAlpha(170);
+        c.drawCircle(goodieX, goodieY, s * 0.8f, fill);
+        fill.setAlpha(255);
+        text.setStyle(Paint.Style.FILL);
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setTextSize(s * 1.1f);
+        c.drawText(Goodies.ICONS[goodie], goodieX, goodieY + s * 0.38f, text);
+        c.restore();
+    }
+
+    /** Active timed goodies as small pills under the shop button, with seconds left. */
+    private void drawBoosts(Canvas c) {
+        float x = shopBtn.left, y = shopBtn.bottom + unit * 0.03f, h = unit * 0.06f;
+        for (int g = 0; g < boostUntil.length; g++) {
+            float left = boostUntil[g] - playTime;
+            if (left <= 0) continue;
+            String label = Goodies.ICONS[g] + " " + (int) Math.ceil(left) + " s";
+            text.setStyle(Paint.Style.FILL);
+            text.setTextSize(h * 0.6f);
+            float tw = text.measureText(label);
+            rect.set(x, y, x + tw + h * 0.6f, y + h);
+            fill.setColor(0xCC2B1B17);
+            c.drawRoundRect(rect, h / 2, h / 2, fill);
+            text.setColor(left < 2 && (int) (now * 6) % 2 == 0 ? GOLD : Color.WHITE);
+            text.setTextAlign(Paint.Align.LEFT);
+            c.drawText(label, x + h * 0.3f, y + h * 0.7f, text);
+            y += h * 1.2f;
+        }
+        text.setTextAlign(Paint.Align.CENTER);
+    }
+
     private void drawBonusStar(Canvas c) {
         float s = unit * 0.07f * (1 + 0.1f * (float) Math.sin(now * 10));
         fill.setColor(GOLD);
@@ -1249,7 +1438,7 @@ public class WackelView extends View {
         drawOutlined(c, fmt(counter), w / 2f, h * 0.775f, unit * 0.12f * bump, color, 0);
         smallText(c, fever ? "🔥 FIEBER-MODUS: alles x1,25 🔥" : "Popo-Klatsch-Counter", w / 2f, h * 0.81f, ink);
         String rates = "+" + fmt(shop.tapGain(false)) + " pro Klatsch   ·   −" + fmt1(drainRate()) + "/s";
-        if (shop.autoRate() > 0) rates += "   ·   Auto +" + fmt1(shop.autoRate()) + "/s";
+        if (autoRate() > 0) rates += "   ·   Auto +" + fmt1(autoRate()) + "/s";
         smallText(c, rates, w / 2f, h * 0.843f, ink);
 
         // Progress to the next award.
@@ -1313,6 +1502,12 @@ public class WackelView extends View {
     private void drawButtons(Canvas c) {
         drawButtonFrame(c, trophyBtn);
         drawTrophyIcon(c, trophyBtn);
+        drawButtonFrame(c, musicBtn);
+        text.setStyle(Paint.Style.FILL);
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setTextSize(musicBtn.width() * 0.55f);
+        text.setColor(INK);
+        c.drawText(musicOn ? "🎸" : "🔇", musicBtn.centerX(), musicBtn.centerY() + musicBtn.width() * 0.2f, text);
         if (state != PLAYING) return;
         drawButtonFrame(c, shopBtn);
         text.setStyle(Paint.Style.FILL);
@@ -1520,7 +1715,7 @@ public class WackelView extends View {
     }
 
     private void drawAwardGrid(Canvas c, float w, float top) {
-        int cols = 10, rows = Awards.TOTAL / cols;
+        int cols = 10, rows = (Awards.TOTAL + cols - 1) / cols;
         float availH = card.bottom - unit * 0.27f - top;
         gridCell = Math.min((card.width() - unit * 0.1f) / cols, availH / rows);
         gridLeft = w / 2f - gridCell * cols / 2f;

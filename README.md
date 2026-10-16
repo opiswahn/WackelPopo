@@ -58,6 +58,24 @@ roter Popo, Dauertanz und alle Klatscher x1,25, bis man nachlässt.
 
 **Bonus-Stern:** Alle 30 bis 60 Sekunden fliegt ein goldener Stern durchs Bild. Wer ihn antippt, bekommt einen dicken Bonus.
 
+**Goodies (ab 1.2):** Alle 15 bis 30 Sekunden schwebt an einem kleinen Fallschirm ein Goodie herunter.
+Man hat etwa 5 Sekunden, es anzutippen, bevor es landet. Laufende Goodies stehen mit Restzeit unter dem Shop-Knopf.
+
+| Goodie | Wirkung |
+|---|---|
+| 🍑 Pfirsich | Bonus-Punkte (wächst mit Abkühlung und Klatsch-Stärke) |
+| 🧊 Frostpause | Counter sinkt 8 Sekunden lang gar nicht |
+| 🍫 Schoko-Power | Klatscher x2 für 10 Sekunden |
+| 🍀 Glücksklee | +25 % Krit-Chance für 10 Sekunden |
+| 🎁 Geschenk | Gratis-Stufe für das günstigste Upgrade |
+| 🤖 Klatsch-Roboter | +3 Auto-Klatscher pro Sekunde für 10 Sekunden |
+| 🧲 Sternen-Magnet | Der nächste Bonus-Stern kommt sofort |
+| 💨 Stinkbombe | Falle! Antippen kostet 15 % vom Counter, also lieber fallen lassen |
+
+**Musik (ab 1.2):** Ein 80er-Retro-Metal-Loop (E-Moll, 152 BPM, Galopp-Riff, Doublebass, Square-Lead mit
+Echo), komplett im Code erzeugt (`MetalLoop.java`), keine Audiodatei. Der Knopf 🎸/🔇 unter dem Pokal
+schaltet sie an und aus.
+
 **Popo-Bewegungen:** 22 Bewegungen (Hops, Doppelhops, Schütteln, Kreisen, Pirouette, Pendel, Wackelpudding,
 Salto, Moonwalk, Stampfen, Quetschen, Pulsieren, Zappeln, Welle, Seitsprung, Schwindelig mit Sternchen,
 Sprungfeder, Rutschpartie, Verbeugung, Hula, Fußtippen, Kick). Nie zweimal dieselbe hintereinander; die
@@ -69,10 +87,10 @@ frierender Popo im Minus und ein schlafender Popo nach dem Spiel.
 **Wörter:** über 120 Comic-Wörter (60 Klatsch-Laute, 34 Lobsprüche, Gefahr-, Shop- und Rettungs-Sprüche)
 in 7 Animationsarten: Plopp, Wackeln, Heranzoomen, Bogenflug, Zittern, Regenbogen-Welle, Gummi-Dehnen.
 
-**30 Spezial-Awards** (lila Sterne im Award-Raster, antippen zeigt die Bedingung): z. B. Oktopus (4+4 Finger),
+**34 Spezial-Awards** (lila Sterne im Award-Raster, antippen zeigt die Bedingung): z. B. Oktopus (4+4 Finger),
 Zehn-Finger-Gott, Rhythmus-Meister, Fieberwahn, Tippmaschine (12 pro Sekunde), Eiserner Popo (10 Minuten),
 Haarscharf (unter -9 und gerettet), Comeback-Kid, Geizhals, Dagobert, Sternenfänger, Nachteule, Popo-Veteran.
-Insgesamt jetzt 130 Awards. Liste in `Awards.java`.
+Dazu kommen Goodie-Jäger, Bescherung, Nasenklammer und Ausweichkünstler. Insgesamt 134 Awards. Liste in `Awards.java`.
 
 **Bestenliste:** Top 10 Spiele nach Gesamt-Klatschern, mit Datum.
 
