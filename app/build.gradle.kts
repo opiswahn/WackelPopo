@@ -17,7 +17,9 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        // Sprachlevel 21 (LTS): D8 desugart die Features runter, minSdk 24 bleibt die Geräte-Grenze.
+        // Java 25 ginge erst mit Gradle 9.1+/AGP-Upgrade — lohnt für dieses Projekt nicht.
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 }
