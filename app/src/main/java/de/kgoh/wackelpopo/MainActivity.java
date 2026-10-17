@@ -1,5 +1,6 @@
 package de.kgoh.wackelpopo;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -38,6 +39,9 @@ public class MainActivity extends Activity implements Updater.Listener {
     };
 
     @Override
+    // Pre-33 fällt der Receiver-Call bewusst auf die 2-Arg-Variante zurück: der Export-Flag
+    // ist erst ab Android 14 definiert und wird dort erzwungen; ältere Geräte brauchen ihn nicht.
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         game = new WackelView(this);
