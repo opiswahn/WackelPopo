@@ -158,6 +158,10 @@ public class WackelView extends View {
     private String kanadierLine = "";
     private final float[] missTimes = new float[4];
     private int missIndex;
+    /** Misses since the last hit, and until when the popo is annoyed by hammering (drain x2). */
+    private int missStreak;
+    private float annoyedUntil = -100f;
+    private static final float ANNOYED_S = 5f;
     private int nextAward;
     /** Klatscher of all earlier games; awards count these plus this game's total. */
     private double lifetimeBase;
@@ -498,6 +502,8 @@ public class WackelView extends View {
         evo = 0;
         nextBeat = now + 1.5f;
         nextBeatHit = false;
+        missStreak = 0;
+        annoyedUntil = -100f;
         pattern = 0;
         patternIdx = 0;
         patternBars = 4;
@@ -568,9 +574,16 @@ public class WackelView extends View {
         chordRight = left ? 0 : 1;
         chordHit = lastJudge > 0;
         if (!chordHit) {
-            // Off the beat: costs what a tap would bring and breaks the combo, so hammering does not pay.
-            // Off the beat costs no points, it only brings nothing and ends the combo.
+            // One slip is free. Misses in a row cost more and more, and hammering annoys the popo:
+            // it drains twice as fast for a few seconds.
             chordGain = 0;
+            missStreak++;
+            boolean warming = tutorial >= 0 || playTime < WARMUP_S;
+            double loss = warming ? 0 : shop.tapGain(false) * 0.5 * Math.min(missStreak - 1, 4);
+            if (loss > 0) {
+                counter -= loss;
+                floatText("−" + fmt(loss), x, y, 0xFFB0BEC5, 0.8f, 0);
+            }
             boolean late = now - (nextBeat - beatGap) < beatGap / 2f;
             word(late ? Lang.t("Zu spät", "Too late") : Lang.t("Zu früh", "Too early"), popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
             breakCombo();
@@ -578,11 +591,19 @@ public class WackelView extends View {
             missTimes[missIndex++ % missTimes.length] = now;
             boolean hammering = true;
             for (float t : missTimes) hammering &= now - t < 2f;
-            if (hammering) kanadier(Lang.t("Einfach mal NEIN sagen!", "Just say NO for once!"));
+            if (hammering) {
+                kanadier(Lang.t("Einfach mal NEIN sagen!", "Just say NO for once!"));
+                if (!warming && now >= annoyedUntil) {
+                    word(Lang.t("Genervt! Abfluss x2", "Annoyed! Drain x2"), popoX, popoY - popoR * 1.7f, RED, 1.1f, 0);
+                    vibrate(new long[]{0, 60, 50, 60});
+                }
+                if (!warming) annoyedUntil = now + ANNOYED_S;
+            }
             return;
         }
         nextBeatHit = true;
         lastHitAt = now;
+        missStreak = 0;
         if (tutorial == 0 && ++tutorialHits >= 3) {
             tutorial = 1;
             Synth.melody(new float[]{523, 659, 784}, 0.07f);
@@ -775,7 +796,7 @@ public class WackelView extends View {
         if (state != PLAYING) return;
         playTime += dt;
         double auto = autoRate();
-        counter += (auto - (tutorial >= 0 || playTime < WARMUP_S ? 0 : drainRate())) * dt;
+        counter += (auto - (tutorial >= 0 || playTime < WARMUP_S ? 0 : drainRate() * (now < annoyedUntil ? 2 : 1))) * dt;
         total += auto * dt;
         while (nextAward < Awards.COUNT && lifetimeBase + total >= Awards.threshold(nextAward)) award(nextAward++);
 
@@ -2074,6 +2095,18 @@ public class WackelView extends View {
             text.setTextAlign(Paint.Align.LEFT);
             c.drawText(label, x + h * 0.3f, y + h * 0.7f, text);
             y += h * 1.2f;
+        }
+        if (now < annoyedUntil) {
+            String label = Lang.t("😤 Abfluss x2  ", "😤 Drain x2  ") + (int) Math.ceil(annoyedUntil - now) + " s";
+            text.setStyle(Paint.Style.FILL);
+            text.setTextSize(h * 0.6f);
+            float tw = text.measureText(label);
+            rect.set(x, y, x + tw + h * 0.6f, y + h);
+            fill.setColor(0xCCB71C1C);
+            c.drawRoundRect(rect, h / 2, h / 2, fill);
+            text.setColor(Color.WHITE);
+            text.setTextAlign(Paint.Align.LEFT);
+            c.drawText(label, x + h * 0.3f, y + h * 0.7f, text);
         }
         text.setTextAlign(Paint.Align.CENTER);
     }

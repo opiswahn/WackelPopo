@@ -34,7 +34,10 @@ zum Durchtippen. Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm
   Eins ist er groß und verzeiht mehr, zwischen den Vierteln ist er klein und knapp. Im Fieber- und Boss-Song
   (176 statt 152 BPM) wird alles schneller; ohne Musik läuft der Takt im selben Tempo weiter.
   - Genau getroffen ist **PERFEKT** (x3), knapp daneben **Gut** (x1,5).
-  - Neben dem Takt zeigt **Zu früh** oder **Zu spät**: kostet keine Punkte, bringt aber nichts und beendet die Combo.
+  - Neben dem Takt zeigt **Zu früh** oder **Zu spät** und beendet die Combo. Ein einzelner Ausrutscher ist
+    gratis, jeder weitere Fehlschlag in Folge kostet mehr (ein halber, ein ganzer, anderthalb, bis zwei Klatscher).
+  - **Spam-Strafe:** 4 Fehlschläge in 2 Sekunden nerven den Popo: 5 Sekunden lang sinkt der Zähler doppelt so
+    schnell (😤 unter dem Shop-Knopf), und der Kanadier schaut vorbei.
   - Pro Schlag zählt ein Treffer; ein zweiter Tipp auf denselben Schlag wird ignoriert. Wildes Hämmern lohnt
     sich also nicht.
 - **Combo:** Jeder Treffer in Folge gibt +10 % (bis x3). Ein ausgelassener Schlag oder ein Tipp neben dem
