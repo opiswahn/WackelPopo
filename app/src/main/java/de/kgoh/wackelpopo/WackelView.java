@@ -257,6 +257,13 @@ public class WackelView extends View {
     private boolean megaBoss;
 
     private final Wardrobe wardrobe;
+    private final Career career;
+    /** This game's numbers for the career missions, and what the career brought this game. */
+    private int perfects, offbeatHits, feverCount, missionsThisGame, levelsThisGame;
+    private long xpThisGame;
+    private float nextMissionCheck;
+    private final long[] missionStats = new long[Career.KINDS];
+    private final int[] finishedMissions = new int[Career.SLOTS];
     private final Daily daily;
     private boolean dailyDoneNow, feverReached;
     private int symmetryCount;
@@ -286,12 +293,14 @@ public class WackelView extends View {
             {"🔥", "Treffer hintereinander geben Combo.", "Ab Combo 16 kommt das Fieber!"},
             {"🛒", "Im Shop gibt es Upgrades.", "Solange er offen ist, wartet das Spiel."},
             {"🪂", "Fang die Goodies am Fallschirm.", "Aber Finger weg von der Stinkbombe!"},
+            {"⭐", "Erledige Aufträge, steig im Level auf.", "Alle 5 Level gibt es mehr Startpunkte."},
     };
     private static final String[][] TUTORIAL_EN = {
             {"📉", "The counter drops all by itself.", "If it falls below −10, game over."},
             {"🔥", "Hits in a row build a combo.", "At combo 16 the fever kicks in!"},
             {"🛒", "The shop has upgrades.", "While it is open, the game waits."},
             {"🪂", "Catch the goodies on parachutes.", "But hands off the stink bomb!"},
+            {"⭐", "Finish missions, level up.", "Every 5 levels: more start points."},
     };
     private final RectF card = new RectF();
     private final RectF closeBtn = new RectF();
@@ -318,6 +327,7 @@ public class WackelView extends View {
         }
         settings = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
         wardrobe = new Wardrobe(context);
+        career = new Career(context);
         daily = new Daily(context);
         for (int cat = 0; cat < wardrobeCells.length; cat++) {
             wardrobeCells[cat] = new RectF[Wardrobe.ITEMS[cat].length];
@@ -461,6 +471,7 @@ public class WackelView extends View {
 
     /** Called by the activity when it comes to the front or leaves it. */
     public void setMusicActive(boolean active) {
+        if (!active) career.save();
         if (active && musicOn) Music.start();
         else Music.stop();
     }
@@ -477,7 +488,11 @@ public class WackelView extends View {
 
     private void newGame() {
         state = PLAYING;
-        counter = START_POINTS;
+        counter = START_POINTS + career.startBonus();
+        career.refresh();
+        perfects = offbeatHits = feverCount = missionsThisGame = levelsThisGame = 0;
+        xpThisGame = 0;
+        nextMissionCheck = 0;
         total = 0;
         playTime = 0;
         lifetimeBase = awards.lifetime();
@@ -604,6 +619,9 @@ public class WackelView extends View {
         nextBeatHit = true;
         lastHitAt = now;
         missStreak = 0;
+        if (lastJudge == 2) perfects++;
+        if (beatSize() == 0) offbeatHits++;
+        gainXp(lastJudge == 2 ? 2 : 1);
         if (tutorial == 0 && ++tutorialHits >= 3) {
             tutorial = 1;
             Synth.melody(new float[]{523, 659, 784}, 0.07f);
@@ -839,6 +857,10 @@ public class WackelView extends View {
         if (wasNegative && counter >= 1000) special(Awards.COMEBACK);
         if (upgradesBought == 0 && counter >= 500) special(Awards.MISER);
         if (counter >= 1e6) special(Awards.SCROOGE);
+        if (playTime >= nextMissionCheck) {
+            nextMissionCheck = playTime + 0.5f;
+            checkMissions();
+        }
         if (playTime >= 180) special(Awards.SURVIVE_3);
         if (playTime >= 600) special(Awards.SURVIVE_10);
         if (playTime >= 1200) special(Awards.SURVIVE_20);
@@ -855,6 +877,7 @@ public class WackelView extends View {
         Synth.melody(new float[]{523, 659, 784, 1047}, 0.06f);
         special(Awards.FEVER);
         feverReached = true;
+        feverCount++;
     }
 
     /** A missed beat or a tap off the beat ends the combo (and with it the fever). */
@@ -941,6 +964,38 @@ public class WackelView extends View {
         // nearest of those, so it lands on the music even after a song change or a loop.
         double slot = now - (clock[0] % bar) + beatPos * bar / 8;
         nextBeat = (float) (slot + Math.round((nextBeat - slot) / bar) * bar);
+    }
+
+    /** Experience for the career; a level-up gets a banner, confetti and its Taler. */
+    private void gainXp(long n) {
+        xpThisGame += n;
+        int up = career.addXp(n, wardrobe);
+        if (up <= 0) return;
+        levelsThisGame += up;
+        queueBanner("LEVEL " + career.level() + "!", career.title() + Lang.t("  ·  +" + (5 + career.level()) + " Taler",
+                "  ·  +" + (5 + career.level()) + " Booty Coins"), GOLD);
+        confetti(80);
+        Synth.melody(new float[]{523, 659, 784, 1047}, 0.09f);
+    }
+
+    private void checkMissions() {
+        missionStats[Career.PERFECTS] = perfects;
+        missionStats[Career.COMBO] = bestCombo;
+        missionStats[Career.SURVIVE] = (long) playTime;
+        missionStats[Career.BOSSES] = bossesBeaten;
+        missionStats[Career.GOODIES] = goodiesCaught;
+        missionStats[Career.SLAPS] = (long) total;
+        missionStats[Career.OFFBEATS] = offbeatHits;
+        missionStats[Career.FEVERS] = feverCount;
+        int n = career.check(missionStats, wardrobe, finishedMissions);
+        for (int i = 0; i < n; i++) {
+            missionsThisGame++;
+            talerThisGame += career.talerReward();
+            queueBanner(Lang.t("AUFTRAG ERLEDIGT!", "MISSION COMPLETE!"), career.text(finishedMissions[i]) + "  ·  +"
+                    + career.xpReward() + " XP", GREEN);
+            Synth.melody(new float[]{659, 784, 988}, 0.08f);
+            gainXp(career.xpReward());
+        }
     }
 
     /** Lets the Kanadier pop up with a line, at most every 12 seconds. */
@@ -1068,6 +1123,7 @@ public class WackelView extends View {
         if (bossHp > 0) return;
         bossActive = false;
         bossesBeaten++;
+        gainXp(20);
         nextBossAt = playTime + 100f + rnd.nextFloat() * 40f;
         double bonus = (25 * drainRate() + 20 * shop.tapGain(false)) * (megaBoss ? 2 : 1);
         counter += bonus;
@@ -1286,6 +1342,8 @@ public class WackelView extends View {
         starActive = false;
         goodie = -1;
         bossActive = false;
+        checkMissions();
+        career.save();
         talerThisGame += (long) (total / 500);
         wardrobe.addTaler((long) (total / 500));
         awards.setLifetime(lifetimeBase + total);
@@ -2133,6 +2191,7 @@ public class WackelView extends View {
         boolean dark = now < discoUntil || fever;
         int ink = dark ? Color.WHITE : INK;
         if (state == READY) {
+            drawCareer(c, w, h, ink);
             drawOutlined(c, Lang.t("Tippen zum Starten!", "Tap to start!"), w / 2f, h * 0.79f, unit * 0.075f, ink, 0);
             smallText(c, Lang.t("Klatsch im Takt: wenn der Ring den Kreis trifft!", "Slap to the beat: when the ring hits the circle!"), w / 2f, h * 0.835f, ink);
             smallText(c, Lang.t("Mehrere Finger gleichzeitig = Griff-Bonus!", "Several fingers at once = grip bonus!"), w / 2f, h * 0.87f, ink);
@@ -2192,12 +2251,33 @@ public class WackelView extends View {
         smallText(c, Lang.t("Gesamt: ", "Total: ") + fmt(total) + Lang.t("   ·   Rekord: ", "   ·   Record: ") + fmt(Math.max(scores.best(), total)), w / 2f, h * 0.955f, ink);
     }
 
+    /** Start screen: level, title, experience bar and the three open missions. */
+    private void drawCareer(Canvas c, float w, float h, int ink) {
+        float y = h * 0.15f;
+        String head = "Level " + career.level() + "  ·  " + career.title();
+        drawOutlined(c, head, w / 2f, y, fit(head, unit * 0.05f, w * 0.7f), GOLD, 0);
+        float bw = w * 0.5f, bh = unit * 0.022f, bx = w / 2f - bw / 2f, by = y + unit * 0.025f;
+        rect.set(bx, by, bx + bw, by + bh);
+        fill.setColor(0x55000000);
+        c.drawRoundRect(rect, bh / 2, bh / 2, fill);
+        rect.set(bx, by, bx + Math.max(bh, bw * Math.min(1f, career.xp() / (float) career.xpNeeded())), by + bh);
+        fill.setColor(GOLD);
+        c.drawRoundRect(rect, bh / 2, bh / 2, fill);
+        y = by + bh + unit * 0.06f;
+        for (int i = 0; i < Career.SLOTS; i++) {
+            boolean ok = career.done(i);
+            String m = (ok ? "✔ " : "☐ ") + career.text(i) + (ok ? "" : "  ·  +" + career.xpReward() + " XP");
+            smallText(c, m, w / 2f, y, ok ? GREEN : ink);
+            y += unit * 0.05f;
+        }
+    }
+
     /** Ends the guided intro and starts the real round from scratch, warm-up included. */
     private void finishTutorial() {
         tutorial = -1;
         settings.edit().putBoolean("tutorialDone", true).apply();
         playTime = 0;
-        counter = START_POINTS;
+        counter = START_POINTS + career.startBonus();
         combo = 0;
         queueBanner(Lang.t("Los geht's!", "Let's go!"), Lang.t("Viel Spaß beim Klatschen", "Have fun slapping"), GOLD);
     }
@@ -2598,6 +2678,15 @@ public class WackelView extends View {
         text.setTextSize(unit * 0.04f);
         text.setColor(INK);
         c.drawText("+" + fmt(talerThisGame) + Lang.t(" Popo-Taler für die Garderobe", " Booty Coins for the wardrobe"), w / 2f, y, text);
+        y += unit * 0.06f;
+        String xpLine = "+" + xpThisGame + " XP  ·  Level " + career.level()
+                + (levelsThisGame > 0 ? "  ⬆" : "") + (missionsThisGame > 0
+                ? Lang.t("  ·  " + missionsThisGame + " Auftrag" + (missionsThisGame > 1 ? "e" : "") + " erledigt",
+                "  ·  " + missionsThisGame + " mission" + (missionsThisGame > 1 ? "s" : "") + " done") : "");
+        text.setTextSize(fit(xpLine, unit * 0.04f, box.width() * 0.9f));
+        text.setColor(levelsThisGame > 0 ? 0xFFB8860B : INK);
+        c.drawText(xpLine, w / 2f, y, text);
+        text.setColor(INK);
         float bw = unit * 0.42f, bh = unit * 0.085f;
         shareBtn.set(w / 2f - bw / 2f, box.bottom - unit * 0.2f, w / 2f + bw / 2f, box.bottom - unit * 0.2f + bh);
         fill.setColor(GREEN);

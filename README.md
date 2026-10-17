@@ -88,6 +88,12 @@ zum Durchtippen. Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm
 
 ## Fortschritt über viele Spiele
 
+- **Karriere (ab 1.20):** Jeder Treffer gibt Erfahrung (PERFEKT 2 XP, Gut 1 XP, Boss 20 XP). Level 2 braucht
+  100 XP, jedes weitere 50 mehr, bis Level 50. Jedes Level bringt 5 + Level Taler, alle 5 Level einen neuen
+  Titel (Popo-Neuling … Wackel-Gott) und 5 Startpunkte mehr.
+- **Aufträge:** Drei stehen immer auf dem Startbildschirm, z. B. „25× PERFEKT in einem Spiel“, „Combo 20
+  erreichen“, „2:15 min überleben“, „8 kleine Ringe treffen“. Jeder gilt für ein einzelnes Spiel, bringt
+  40 + 8 × Level XP und Taler und wird beim nächsten Spiel durch einen neuen, mit dem Level schwereren ersetzt.
 - **139 Awards** (Pokal rechts oben): 100 normale Awards nach den Klatschern **aller Spiele zusammen**
   (Schwelle 100 × Nummer^2,6, also Award 10 bei ~40.000 und Award 100 bei ~16 Mio.), jeder mit eigenem
   Namen und Effekt, dazu 39 Spezial-Awards für besondere Leistungen. Liste in `Awards.java`.
