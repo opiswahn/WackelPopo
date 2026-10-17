@@ -155,12 +155,14 @@ public class WackelView extends View {
     private android.graphics.Bitmap kanadierTop, kanadierBottom;
     private float kanadierAt = -100f;
     private String kanadierLine = "";
-    private final float[] missTimes = new float[4];
+    private final float[] missTimes = new float[16];
     private int missIndex;
-    /** Misses since the last hit, and until when the popo is annoyed by hammering (drain x2). */
-    private int missStreak;
+    /** When the last tap missed, and until when the popo is annoyed by hammering (drain x3). */
+    private float lastMissAt = -100f;
     private float annoyedUntil = -100f;
-    private static final float ANNOYED_S = 5f;
+    private static final float ANNOYED_S = 6f, ANNOYED_DRAIN = 3f;
+    /** A tap this soon after a miss is spam and cannot hit; misses within MISS_MEMORY_S make each miss dearer. */
+    private static final float SPAM_LOCK_S = 0.3f, MISS_MEMORY_S = 3f;
     private int nextAward;
     /** Klatscher of all earlier games; awards count these plus this game's total. */
     private double lifetimeBase;
@@ -571,7 +573,8 @@ public class WackelView extends View {
         evo = 0;
         nextBeat = now + 1.5f;
         nextBeatHit = false;
-        missStreak = 0;
+        lastMissAt = -100f;
+        java.util.Arrays.fill(missTimes, -100f);
         annoyedUntil = -100f;
         pattern = 0;
         patternIdx = 0;
@@ -635,7 +638,8 @@ public class WackelView extends View {
         boolean inGood = d >= -earlyWindow() && d <= lateWindow();
         // A second tap on a beat that already counted is simply ignored, it is not a miss.
         if (nextBeatHit && inGood) return;
-        lastJudge = nextBeatHit || !inGood ? 0 : (off <= PERFECT_S[beatSize()] * talents.windowFactor() ? 2 : 1);
+        boolean spam = now - lastMissAt < SPAM_LOCK_S;
+        lastJudge = nextBeatHit || !inGood || spam ? 0 : (off <= PERFECT_S[beatSize()] * talents.windowFactor() ? 2 : 1);
         chordOpen = true;
         chordStart = now;
         chordLast = now;
@@ -643,27 +647,31 @@ public class WackelView extends View {
         chordRight = left ? 0 : 1;
         chordHit = lastJudge > 0;
         if (!chordHit) {
-            // One slip is free. Misses in a row cost more and more, and hammering annoys the popo:
-            // it drains twice as fast for a few seconds.
+            // Every miss costs a slap, one more for each miss of the last three seconds (up to six), and
+            // a hit right after a miss does not count. Hammering annoys the popo: it drains three times as fast.
             chordGain = 0;
-            missStreak++;
+            lastMissAt = now;
+            missTimes[missIndex++ % missTimes.length] = now;
+            int recent = 0;
+            for (float t : missTimes) if (now - t < MISS_MEMORY_S) recent++;
             boolean warming = tutorial >= 0 || playTime < WARMUP_S;
-            double loss = warming ? 0 : shop.tapGain(false) * 0.5 * Math.min(missStreak - 1, 4);
+            double loss = warming ? 0 : shop.tapGain(false) * Math.min(recent, 6);
             if (loss > 0) {
                 counter -= loss;
                 floatText("−" + fmt(loss), x, y, 0xFFB0BEC5, 0.8f, 0);
             }
             boolean late = now - (nextBeat - beatGap) < beatGap / 2f;
-            word(late ? Lang.t("Zu spät", "Too late") : Lang.t("Zu früh", "Too early"), popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
+            String why = spam && inGood && !nextBeatHit ? Lang.t("Zu hastig", "Too hasty")
+                    : late ? Lang.t("Zu spät", "Too late") : Lang.t("Zu früh", "Too early");
+            word(why, popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
             breakCombo();
-            // Four misses within two seconds is hammering: time for the Kanadier.
-            missTimes[missIndex++ % missTimes.length] = now;
-            boolean hammering = true;
-            for (float t : missTimes) hammering &= now - t < 2f;
-            if (hammering) {
+            // Three misses within two seconds is hammering: time for the Kanadier.
+            int quick = 0;
+            for (float t : missTimes) if (now - t < 2f) quick++;
+            if (quick >= 3) {
                 kanadier(Lang.t("Einfach mal NEIN sagen!", "Just say NO for once!"));
                 if (!warming && now >= annoyedUntil) {
-                    word(Lang.t("Genervt! Abfluss x2", "Annoyed! Drain x2"), popoX, popoY - popoR * 1.7f, RED, 1.1f, 0);
+                    word(Lang.t("Genervt! Abfluss x3", "Annoyed! Drain x3"), popoX, popoY - popoR * 1.7f, RED, 1.1f, 0);
                     vibrate(new long[]{0, 60, 50, 60});
                 }
                 if (!warming) annoyedUntil = now + ANNOYED_S;
@@ -672,7 +680,6 @@ public class WackelView extends View {
         }
         nextBeatHit = true;
         lastHitAt = now;
-        missStreak = 0;
         if (lastJudge == 2) perfects++;
         if (beatSize() == 0) offbeatHits++;
         gainXp(lastJudge == 2 ? 2 : 1);
@@ -868,7 +875,7 @@ public class WackelView extends View {
         if (state != PLAYING) return;
         playTime += dt;
         double auto = autoRate();
-        counter += (auto - (tutorial >= 0 || playTime < WARMUP_S ? 0 : drainRate() * (now < annoyedUntil ? 2 : 1))) * dt;
+        counter += (auto - (tutorial >= 0 || playTime < WARMUP_S ? 0 : drainRate() * (now < annoyedUntil ? ANNOYED_DRAIN : 1))) * dt;
         total += auto * dt;
         while (nextAward < Awards.COUNT && lifetimeBase + total >= Awards.threshold(nextAward)) award(nextAward++);
 
@@ -1071,9 +1078,18 @@ public class WackelView extends View {
         syncBeatToMusic();
         while (now > nextBeat + lateWindow()) {
             // Right after the song changes the beat jumps onto the new tempo; a beat lost there is not the player's fault.
-            if (!nextBeatHit && combo > 0 && now - songChangedAt > 1.5f) breakCombo();
+            if (!nextBeatHit && now - songChangedAt > 1.5f) missedBeat();
             advanceBeat();
         }
+    }
+
+    /** The ring closed without a tap: the combo ends, and from the warm-up on the beat costs half a slap per size. */
+    private void missedBeat() {
+        if (combo > 0) breakCombo();
+        if (tutorial >= 0 || playTime < WARMUP_S || state != PLAYING) return;
+        double loss = shop.tapGain(false) * 0.5 * (beatSize() + 1);
+        counter -= loss;
+        floatText("−" + fmt(loss), popoX, popoY + popoR * 1.25f, 0xFFB0BEC5, 0.7f, 0);
     }
 
     private void updateFever(float dt) {
@@ -2247,7 +2263,7 @@ public class WackelView extends View {
             y += h * 1.2f;
         }
         if (now < annoyedUntil) {
-            String label = Lang.t("😤 Abfluss x2  ", "😤 Drain x2  ") + (int) Math.ceil(annoyedUntil - now) + " s";
+            String label = Lang.t("😤 Abfluss x3  ", "😤 Drain x3  ") + (int) Math.ceil(annoyedUntil - now) + " s";
             text.setStyle(Paint.Style.FILL);
             text.setTextSize(h * 0.6f);
             float tw = text.measureText(label);

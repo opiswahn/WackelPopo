@@ -34,12 +34,15 @@ zum Durchtippen. Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm
   Eins ist er groß und verzeiht mehr, zwischen den Vierteln ist er klein und knapp. Im Fieber- und Boss-Song
   (176 statt 152 BPM) wird alles schneller; ohne Musik läuft der Takt im selben Tempo weiter.
   - Genau getroffen ist **PERFEKT** (x3), knapp daneben **Gut** (x1,5).
-  - Neben dem Takt zeigt **Zu früh** oder **Zu spät** und beendet die Combo. Ein einzelner Ausrutscher ist
-    gratis, jeder weitere Fehlschlag in Folge kostet mehr (ein halber, ein ganzer, anderthalb, bis zwei Klatscher).
-  - **Spam-Strafe:** 4 Fehlschläge in 2 Sekunden nerven den Popo: 5 Sekunden lang sinkt der Zähler doppelt so
+  - Neben dem Takt zeigt **Zu früh** oder **Zu spät** und beendet die Combo. Jeder Fehlschlag kostet einen
+    Klatscher, dazu einen mehr für jeden Fehlschlag der letzten 3 Sekunden (bis 6 Klatscher).
+  - **Zu hastig:** Ein Tipp weniger als 0,3 s nach einem Fehlschlag zählt nie als Treffer, auch nicht im Takt.
+  - **Verpasst:** Schließt sich der Ring ohne Tipp, endet die Combo und der Schlag kostet einen halben (kleiner
+    Ring), ganzen (normal) oder anderthalb Klatscher (auf der Eins). In den ersten 8 Sekunden ist alles gratis.
+  - **Spam-Strafe:** 3 Fehlschläge in 2 Sekunden nerven den Popo: 6 Sekunden lang sinkt der Zähler dreimal so
     schnell (😤 unter dem Shop-Knopf), und der Kanadier schaut vorbei.
-  - Pro Schlag zählt ein Treffer; ein zweiter Tipp auf denselben Schlag wird ignoriert. Wildes Hämmern lohnt
-    sich also nicht.
+  - Pro Schlag zählt ein Treffer; ein zweiter Tipp auf denselben Schlag wird ignoriert. Wildes Hämmern kostet
+    also nur.
 - **Combo:** Jeder Treffer in Folge gibt +10 % (bis x3). Ein ausgelassener Schlag oder ein Tipp neben dem
   Takt beendet sie. Ab Combo 16 startet der **Fieber-Modus** (alles x1,25, schnellerer Song) bis zum nächsten Fehler.
 - **Mehrfinger-Griffe:** Finger, die fast gleichzeitig landen, bilden einen Griff. Er zählt wie **ein**
