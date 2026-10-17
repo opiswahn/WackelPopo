@@ -57,7 +57,10 @@ public class WackelView extends View {
     private static final double FEVER_BONUS = 1.25;
     private static final double CRIT_FACTOR = 3;
     /** Rhythm: a tap this close to the beat is PERFEKT, a bit further GUT, anything else DANEBEN. */
-    private static final float PERFECT_S = 0.07f, GOOD_S = 0.15f;
+    private static final float PERFECT_S = 0.09f, GOOD_S = 0.2f;
+    /** Points every game starts with, and seconds of warm-up without drain or miss penalties. */
+    private static final double START_POINTS = 25;
+    private static final float WARMUP_S = 8f;
     private static final int FEVER_COMBO = 16;
     /** Fingers landing within this time of each other belong to the same Griff. */
     private static final float CHORD_GAP_S = 0.09f;
@@ -404,7 +407,7 @@ public class WackelView extends View {
 
     private void newGame() {
         state = PLAYING;
-        counter = 0;
+        counter = START_POINTS;
         total = 0;
         playTime = 0;
         lifetimeBase = awards.lifetime();
@@ -452,6 +455,7 @@ public class WackelView extends View {
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         if (hour < 4) special(Awards.NIGHT_OWL);
         if (hour >= 5 && hour < 7) special(Awards.EARLY_BIRD);
+        queueBanner("Finde den Takt!", "Klatsch, wenn der Ring sich schließt", Color.WHITE);
     }
 
     private void klatsch(float x, float y) {
@@ -487,10 +491,11 @@ public class WackelView extends View {
         chordHit = lastJudge > 0;
         if (!chordHit) {
             // Off the beat: costs what a tap would bring and breaks the combo, so hammering does not pay.
-            double loss = shop.tapGain(false);
+            // Half a tap and nothing during warm-up, so a few slips never end a game but hammering still drains.
+            double loss = playTime < WARMUP_S ? 0 : shop.tapGain(false) * 0.5;
             counter -= loss;
             chordGain = 0;
-            floatText("−" + fmt(loss), x, y, 0xFFB0BEC5, 0.8f, 0);
+            if (loss > 0) floatText("−" + fmt(loss), x, y, 0xFFB0BEC5, 0.8f, 0);
             word("Daneben", popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
             breakCombo();
             // Four misses within two seconds is hammering: time for the Kanadier.
@@ -690,7 +695,7 @@ public class WackelView extends View {
         if (state != PLAYING) return;
         playTime += dt;
         double auto = autoRate();
-        counter += (auto - drainRate()) * dt;
+        counter += (auto - (playTime < WARMUP_S ? 0 : drainRate())) * dt;
         total += auto * dt;
         while (nextAward < Awards.COUNT && lifetimeBase + total >= Awards.threshold(nextAward)) award(nextAward++);
 
@@ -761,7 +766,7 @@ public class WackelView extends View {
 
     /** Seconds between beats: calm at first, getting faster the longer you last. */
     private float beatInterval() {
-        return Math.max(0.45f, 0.9f - playTime * 0.002f);
+        return Math.max(0.45f, 1.0f - playTime * 0.002f);
     }
 
     /** Lets the Kanadier pop up with a line, at most every 12 seconds. */
