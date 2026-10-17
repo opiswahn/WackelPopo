@@ -1,161 +1,204 @@
 # Wackel-Popo
 
-Ein Comic-Klatschspiel für Android: Klatsch den Popo im Takt der Musik, halt den Zähler über Wasser und
-sammle Awards, Outfits und Verwandlungen. Komplett in Java ohne Bibliotheken; Grafik, Musik und Effekte
-entstehen im Code.
+Ein Comic-Rhythmusspiel für Android von **Jürgen Hölker**: Klatsch den Popo im Takt,
+halte den Zähler über Wasser und sammle Awards, Talente, Outfits und Verwandlungen.
 
-**Herunterladen:** [neuestes Release](https://github.com/opiswahn/WackelPopo/releases/latest) →
-`wackel-popo.apk` aufs Handy laden, öffnen, „Installation aus unbekannten Quellen“ erlauben. Danach
-aktualisiert sich die App selbst (siehe [Updates](#updates)).
+Die App ist in Java geschrieben, zeichnet mit Android Canvas und erzeugt Musik sowie
+Soundeffekte selbst. Es gibt keine zusätzlichen App-Bibliotheken und keine Game-Engine.
+Das Icon wird mit `tools/icon.py` gezeichnet. Die beiden Kanadier-PNGs entstehen mit
+`tools/kanadier.py` aus einem eigenen, für die MIT-Freigabe autorisierten Porträtfoto
+des Autors. Schriften und Emoji-Darstellung kommen vom Android-System.
+
+- **Version:** `1.24` (lokaler `versionCode` 25; Quelle: [`version.txt`](version.txt)).
+- **Geräte:** Android 7.0 / API 24 oder neuer, Hochformat, Touchscreen.
+- **Sprachen:** Deutsch und Englisch, umschaltbar über DE/EN.
+- **Lizenz:** [MIT](LICENSES), Copyright (c) 2026 Jürgen Hölker.
+- **Fremdkomponenten:** Umfang, Original-Lizenztexte und Verträglichkeitsprüfung in
+  [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES). Fremdcode behält seine eigene Lizenz.
+
+## Herunterladen und installieren
+
+Im [neuesten GitHub-Release](https://github.com/opiswahn/WackelPopo/releases/latest)
+die Datei `wackel-popo.apk` herunterladen und auf dem Handy öffnen. Falls nötig, die
+Installation aus dieser Quelle in Android erlauben. Dies ist der direkte APK-Vertrieb,
+kein Google-Play-Release.
+
+Eine lokal gebaute Debug-APK hat einen anderen Signaturschlüssel als die Release-APK.
+Sie kann deshalb nicht als Update darüber installiert werden. Eine Deinstallation kann
+lokale Spielstände löschen; für Updates muss die Signatur gleich bleiben.
 
 ## So wird gespielt
 
-Beim allerersten Spiel führt eine kurze Einführung durch alles: drei Treffer im Takt üben, dann sechs Karten
-zum Durchtippen (Zähler, Combo, Mehrfinger-Griffe, Shop, Goodies, Aufträge). Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm startet sie jederzeit wieder.
+Beim ersten Spiel erklärt ein Tutorial den Takt und die Bedienelemente. Der ❓-Knopf
+auf dem Startbildschirm startet die Einführung erneut.
 
-- **Der Zähler** startet bei 25 und sinkt ständig, und zwar immer schneller (+1,1 % pro Sekunde, verdoppelt
-  sich etwa jede Minute). Fällt er auf **−10**, ist das Spiel vorbei. Die ersten 8 Sekunden sind Aufwärmen
-  ohne Abzug.
-- **Klatschen im Takt:** Ein Ring schrumpft auf den Kreis um den Popo zu und trifft ihn genau auf dem Schlag.
-  Die Schläge liegen immer auf der Musik (Achtelnoten des Songs, abgeglichen mit dem, was gerade aus dem
-  Lautsprecher kommt), aber der Rhythmus wechselt alle zwei Takte. Ein neuer Rhythmus wird kurz angesagt:
+- **Zähler:** Start bei 25 Punkten, zusätzliche Startpunkte durch Karriere und Talente.
+  Nach 8 Sekunden Aufwärmen sinkt er zunehmend schneller. Bei −10 endet das Spiel,
+  sofern das Talent „Zweite Chance“ dich nicht einmalig rettet.
+- **Takt treffen:** Der schrumpfende Ring zeigt den nächsten Schlag. PERFEKT gibt den
+  Faktor ×3, Gut ×1,5. Große Ringe auf der Eins haben großzügigere Trefferfenster als
+  kleine Zwischenbeats. Pro Schlag zählt ein Treffer; zusätzliche Finger können einen
+  gemeinsamen Mehrfinger-Griff bilden.
+- **Fehler:** Zu früh, zu spät oder verpasst beendet die Combo und kostet nach der
+  Aufwärmphase Punkte. Wiederholte Fehlschläge werden teurer. Ein Tipp innerhalb von
+  0,3 Sekunden nach einem Fehlschlag kann nicht treffen. Drei Fehlschläge binnen zwei
+  Sekunden lösen die Spam-Strafe aus: 6 Sekunden lang dreifacher Zählerabfluss.
+- **Combo und Fieber:** Treffer in Folge erhöhen den Combo-Faktor bis ×3. Ohne Talente
+  beginnt Fieber ab Combo 16, gibt ×1,25 und einen schnelleren Song. Ein Fehler beendet es.
+- **Mehrfinger-Griffe:** Fast gleichzeitig landende Finger zählen als ein Griff, nicht
+  als unabhängige Klatscher. Fingerzahl und Links-/Rechts-Verteilung bestimmen Namen
+  und Bonus; die Regeln stehen in `Chords.java`.
+- **Shop:** Während einer Runde Punkte gegen Doppelhand, Auto-Klatscher, Popo-Creme,
+  kritische Treffer, Combo-Turbo und Goldenen Popo tauschen. Die Upgrades gelten für
+  diese Runde. Offene Shop- und Pokalansichten pausieren das Spiel.
 
-  | Rhythmus | Schläge pro Takt | frei ab |
-  |---|---|---|
-  | Im Takt | auf Eins und Drei | Start |
-  | Ganz langsam | nur auf der Eins | Start |
-  | Doppeltempo! | alle vier Viertel | 25 s |
-  | Nachschlag! | Eins, Drei, Vier | 40 s |
-  | Synkope! | Eins, zwischen Zwei und Drei, Vier | 60 s |
-  | Galopp! | Eins, Zwei, gleich danach, Vier | 90 s |
-  | Doppelklatsch! | je zwei schnelle Schläge auf Eins und Drei | 120 s |
+Die sieben Rhythmusmuster werden mit der Überlebenszeit freigeschaltet:
 
-  Der Ring schließt sich genau in der Zeit seit dem letzten Schlag: schneller Ring, schneller Schlag. Auf der
-  Eins ist er groß und verzeiht mehr, zwischen den Vierteln ist er klein und knapp. Im Fieber- und Boss-Song
-  (176 statt 152 BPM) wird alles schneller; ohne Musik läuft der Takt im selben Tempo weiter.
-  - Genau getroffen ist **PERFEKT** (x3), knapp daneben **Gut** (x1,5).
-  - Neben dem Takt zeigt **Zu früh** oder **Zu spät** und beendet die Combo. Jeder Fehlschlag kostet einen
-    Klatscher, dazu einen mehr für jeden Fehlschlag der letzten 3 Sekunden (bis 6 Klatscher).
-  - **Zu hastig:** Ein Tipp weniger als 0,3 s nach einem Fehlschlag zählt nie als Treffer, auch nicht im Takt.
-  - **Verpasst:** Schließt sich der Ring ohne Tipp, endet die Combo und der Schlag kostet einen halben (kleiner
-    Ring), ganzen (normal) oder anderthalb Klatscher (auf der Eins). In den ersten 8 Sekunden ist alles gratis.
-  - **Spam-Strafe:** 3 Fehlschläge in 2 Sekunden nerven den Popo: 6 Sekunden lang sinkt der Zähler dreimal so
-    schnell (😤 unter dem Shop-Knopf), und der Kanadier schaut vorbei.
-  - Pro Schlag zählt ein Treffer; ein zweiter Tipp auf denselben Schlag wird ignoriert. Wildes Hämmern kostet
-    also nur.
-- **Combo:** Jeder Treffer in Folge gibt +10 % (bis x3). Ein ausgelassener Schlag oder ein Tipp neben dem
-  Takt beendet sie. Ab Combo 16 startet der **Fieber-Modus** (alles x1,25, schnellerer Song) bis zum nächsten Fehler.
-- **Mehrfinger-Griffe:** Finger, die fast gleichzeitig landen, bilden einen Griff. Er zählt wie **ein**
-  Klatscher mal einem kleinen Faktor (x1,05 bei 2 Fingern bis x1,8 beim „Zehn-Finger-Gewitter“), und nur im
-  Takt. Links/rechts der Popo-Mitte bestimmt den Namen (`Chords.java`).
-- **Shop** (🛒 links oben, nur im Spiel): Punkte gegen Upgrades tauschen. Solange Shop oder Pokale offen
-  sind, steht das Spiel still.
+| Muster | Schläge im 4/4-Takt | Frei ab |
+|---|---|---|
+| Im Takt | Eins, Drei | Start |
+| Ganz langsam | Eins | Start |
+| Doppeltempo | Eins, Zwei, Drei, Vier | 25 s |
+| Nachschlag | Eins, Drei, Vier | 40 s |
+| Synkope | Eins, zwischen Zwei und Drei, Vier | 60 s |
+| Galopp | Eins, Zwei, direkt danach, Vier | 90 s |
+| Doppelklatsch | je zwei schnelle Schläge auf Eins und Drei | 120 s |
 
-| Upgrade | Wirkung | Startpreis | Preisfaktor |
-|---|---|---|---|
-| 👏 Doppelhand | +1 pro Klatsch | 25 | x2 |
-| 🤖 Auto-Klatscher | +0,5 pro Sekunde von allein | 40 | x2 |
-| 🧴 Popo-Creme | Zähler sinkt 12 % langsamer (max. 10) | 60 | x2,2 |
-| ⚡ Kritischer Klatscher | +4 % Chance auf x3 (max. 10) | 100 | x2,2 |
-| 🔥 Combo-Turbo | +10 % ab Combo 5 (max. 10) | 150 | x2,2 |
-| 👑 Goldener Popo | alles +15 % (max. 5) | 400 | x2,5 |
+## Ereignisse und langfristiger Fortschritt
 
-## Was zwischendurch passiert
+- **Goodies:** Pfirsich, Frostpause, Schoko-Power, Glücksklee, Geschenk, Klatsch-Roboter
+  und Sternen-Magnet bringen Boni. Die Stinkbombe kostet 15 % vom Zähler: fallen lassen!
+  Goodies erscheinen am Fallschirm; zusätzlich gibt es Bonus-Sterne.
+- **Bosse und Evolution:** Bosse haben ein Zeitlimit von 20 Sekunden und nehmen durch
+  Treffer im Takt Schaden. Punkte im laufenden Spiel führen zu Bronze-, Silber-, Gold-,
+  Regenbogen-, Galaxie- und Lava-Verwandlungen. Gold und Galaxie können Mega-Bosse rufen.
+- **Der Kanadier:** Ein aus einem eigenen Foto erzeugter Comic-Kopf erscheint bei Spam oder einer
+  gefangenen Stinkbombe und mahnt zum Nein-Sagen. Die Einblendung hat 12 Sekunden Abklingzeit.
+- **Karriere:** Bis Level 50 mit Erfahrung durch Treffer, Bosse und Aufträge. Drei
+  Aufträge sind parallel aktiv; erledigte werden beim nächsten Spiel ersetzt.
+- **Awards:** 100 reguläre Awards für die Klatscher aller abgeschlossenen Spiele plus
+  39 Spezial-Awards, insgesamt 139. Definitionen: `Awards.java`.
+- **Talente:** Permanente Verbesserungen für Startpunkte, Zählerabfluss, Trefferfenster,
+  Fieber, Goodie-Häufigkeit und eine zweite Chance.
+- **Bühnen:** Hinterhof, Strand, Disco, Weltall und Vulkan mit eigenen Hintergründen,
+  Tempo-/Tonartänderungen und steigender Schwierigkeit. Das Bühnenziel ruft einen
+  Endboss; dessen Sieg schaltet die nächste Bühne frei.
+- **Popo-Taler und Garderobe:** Taler durch Spielrunden, Bosse, Karriere und Tagesaufgaben
+  für Hüte, Brillen, Hosenfarben und Talente ausgeben; keine Echtgeldkäufe implementiert.
+- **Tages-Challenge und Bestenliste:** Zehn mögliche Tagesaufgaben, Serienbonus,
+  lokale Top 10 und ein teilbares Rekordbild.
 
-- **Goodies** schweben alle 30 bis 50 Sekunden am Fallschirm herunter; antippen, bevor sie landen. Laufende
-  Goodies stehen mit Restzeit unter dem Shop-Knopf.
+Die drei prozeduralen Retro-Metal-Songs sind in `MetalLoop.java` definiert: Menü,
+Spiel und Fieber/Boss. Musik lässt sich abschalten; der Rhythmus bleibt spielbar.
+Spielstände liegen lokal in Android `SharedPreferences`. Ein Konto ist nicht erforderlich.
 
-| Goodie | Wirkung |
-|---|---|
-| 🍑 Pfirsich | Bonus-Punkte |
-| 🧊 Frostpause | Zähler sinkt 8 Sekunden lang nicht |
-| 🍫 Schoko-Power | Klatscher x2 für 10 Sekunden |
-| 🍀 Glücksklee | +25 % Krit-Chance für 10 Sekunden |
-| 🎁 Geschenk | Gratis-Stufe für das günstigste Upgrade |
-| 🤖 Klatsch-Roboter | +3 Auto-Klatscher pro Sekunde für 10 Sekunden |
-| 🧲 Sternen-Magnet | Der nächste Bonus-Stern kommt sofort |
-| 💨 Stinkbombe | Falle: kostet 15 % vom Zähler, also fallen lassen |
+## Updates und Berechtigungen
 
-- **Bonus-Stern:** alle 60 bis 90 Sekunden; antippen gibt einen dicken Bonus.
-- **Boss-Popo:** nach gut einer Minute, dann alle 100 bis 140 Sekunden (lila, Wikingerhelm, Lebensbalken).
-  Nur Treffer im Takt ziehen Lebenspunkte ab: 15, jeder weitere Boss im Spiel +5, und man hat 20 Sekunden.
-  Sieg: Bonus, Popo-Taler, Krone und mit 35 % Chance ein Garderoben-Teil.
-- **Popo-Evolution** nach Klatschern im Spiel: Bronze (1.000), Silber (5.000), Gold (15.000, Mega-Boss),
-  Regenbogen (40.000), Galaxie (100.000, Mega-Boss), Lava (250.000). Mega-Bosse haben doppelte Lebenspunkte
-  und doppelte Beute.
-- **Feuerroter Popo:** Jeder Treffer heizt die Backen auf, ohne Tippen kühlen sie ab. Bei Dauerfeuer werden
-  sie knallrot und dampfen.
-- **Der Kanadier:** Wer wild hämmert (4 Fehlschläge in 2 Sekunden) oder die Stinkbombe fängt, bekommt Besuch:
-  Unten rechts fährt ein Kopf im South-Park-Stil herein, klappt beim Reden auf und ruft „Einfach mal NEIN
-  sagen!“. Höchstens alle 12 Sekunden.
+Beim App-Start fragt `Updater.java` das neueste Release über die GitHub-API ab. Das Spiel
+selbst funktioniert offline; die Update-Abfrage benötigt Internet und übermittelt dabei
+übliche Verbindungsdaten an GitHub. Eine neuere Version wird auf dem Startbildschirm
+angeboten, aber erst nach Antippen heruntergeladen. Android verlangt die Zustimmung zur
+Installation; bei Problemen gibt es einen Browser-Fallback.
 
-## Fortschritt über viele Spiele
+Das Manifest deklariert:
 
-- **Karriere (ab 1.20):** Jeder Treffer gibt Erfahrung (PERFEKT 2 XP, Gut 1 XP, Boss 20 XP). Level 2 braucht
-  100 XP, jedes weitere 50 mehr, bis Level 50. Jedes Level bringt 5 + Level Taler, alle 5 Level einen neuen
-  Titel (Popo-Neuling … Wackel-Gott) und 5 Startpunkte mehr.
-- **Aufträge:** Drei stehen immer auf dem Startbildschirm, z. B. „25× PERFEKT in einem Spiel“, „Combo 20
-  erreichen“, „2:15 min überleben“, „8 kleine Ringe treffen“. Jeder gilt für ein einzelnes Spiel, bringt
-  40 + 8 × Level XP und Taler und wird beim nächsten Spiel durch einen neuen, mit dem Level schwereren ersetzt.
-- **139 Awards** (Pokal rechts oben): 100 normale Awards nach den Klatschern **aller Spiele zusammen**
-  (Schwelle 100 × Nummer^2,6, also Award 10 bei ~40.000 und Award 100 bei ~16 Mio.), jeder mit eigenem
-  Namen und Effekt, dazu 39 Spezial-Awards für besondere Leistungen. Liste in `Awards.java`.
-- **Talente (ab 1.21, ⭐ links oben auf dem Startbildschirm):** dauerhafte Boni für Taler, Preis verdoppelt sich
-  pro Stufe: Polster (+10 Startpunkte), Dicke Haut (Zähler sinkt 4 % langsamer), Rhythmusgefühl (Trefferfenster
-  6 % breiter), Fieber-Glut (Fieber 2 Combo früher, bis ab Combo 6), Goodie-Glück (Goodies 8 % öfter), je 5 Stufen,
-  und Zweite Chance (einmal pro Spiel bei −10 gerettet).
-- **Bühnen (ab 1.22, ◀ ▶ unten auf dem Startbildschirm):** Hinterhof, Strand, Disco, Weltall, Vulkan. Jede hat
-  eigenen Hintergrund und spielt die Songs schneller und in eigener Tonart. Wer in einem Spiel das Bühnenziel
-  erreicht (3.000 / 8.000 / 20.000 / 50.000 / 120.000 Klatscher), ruft den Endboss; wer ihn besiegt, schaltet die
-  nächste Bühne frei (+50 XP). Höhere Bühnen geben mehr Punkte (bis ×2,5), der Zähler sinkt aber schneller (bis ×1,45).
-- **Popo-Taler** gibt es am Spielende (1 pro 500 Klatscher), für Bosse und für die Tages-Challenge.
-- **Garderobe** (👕 links oben auf dem Startbildschirm): Hüte, Brillen und Hosenfarben für Taler.
-- **Tages-Challenge:** jeden Tag eine von 10 Aufgaben, steht auf dem Startbildschirm. Geschafft gibt es
-  40 Taler plus 10 pro Tag in Folge (bis +100).
-- **Bestenliste:** Top 10 Spiele mit Datum. Auf der Game-Over-Karte macht „📤 Rekord teilen“ ein Bild
-  zum Verschicken.
+- `VIBRATE`: haptische Effekte.
+- `INTERNET`: GitHub-Updateprüfung und APK-Download.
+- `REQUEST_INSTALL_PACKAGES`: den Android-Installationsdialog für APK-Updates öffnen.
 
-**Musik:** drei 80er-Retro-Metal-Songs, komplett im Code erzeugt (`MetalLoop.java`): ruhige Gitarre im Menü
-(104 BPM), der Spiel-Song (152 BPM) und ein schnellerer Song einen Ton höher für Fieber und Boss (176 BPM).
-Die Lautstärke folgt dem Geschehen; 🎸/🔇 unter dem Pokal schaltet sie ab.
+`android:allowBackup="true"` erlaubt Android-Systembackups. Der private `ShareProvider`
+teilt Rekordbilder über zeitweise URI-Berechtigungen.
 
-**Sprache:** Der Knopf DE/EN rechts oben schaltet zwischen Deutsch und Englisch um, auch mitten im Spiel.
+## Selbst bauen: Gradle / Android Studio
 
-Die Versionsnummer steht klein unten links.
+Voraussetzungen:
 
-## Updates
+- **JDK 21**; `JAVA_HOME` und `PATH` müssen auf das gewünschte JDK zeigen.
+- Android-SDK mit **Platform 35**, Platform-Tools und den von AGP benötigten Build-Tools
+  (bei AGP 8.7 standardmäßig 34.0.0); SDK-Lizenzen akzeptiert. Gradle kann fehlende
+  SDK-Pakete nachladen, wenn die Umgebung und Lizenzen dies erlauben.
+- Der mitgelieferte Wrapper lädt **Gradle 8.14.3**; verwendet wird **AGP 8.7.3**.
 
-Jeder Push auf `main` startet `.github/workflows/release.yml`: Es baut das APK, signiert es und
-veröffentlicht es als Release `build-<versionCode>` mit der Datei `wackel-popo.apk`
-(versionCode = 100 + Build-Nummer, Versionsname aus `version.txt`, die Build-Nummer steht im Release-Titel).
+SDK-Pfad über `ANDROID_HOME` oder eine nicht versionierte `local.properties` setzen:
 
-Die App fragt beim Start das neueste Release ab. Ist es neuer, erscheint unten auf dem Startbildschirm
-„⬇ Neue Version …“; ein Tipp lädt und installiert es. Beim ersten Mal fragt Android, ob die App andere Apps
-installieren darf. Meldet Android nichts zurück oder passt die Signatur nicht, bietet der Knopf den Download
-im Browser an.
+```properties
+sdk.dir=/absoluter/pfad/zum/Android/Sdk
+```
 
-**Signatur:** Der Schlüssel wird bei jedem Build mit `tools/release-key.py` aus dem Repo-Secret
-`SIGNING_PASSPHRASE` abgeleitet; gleiches Passwort, gleicher Schlüssel. Das Secret darf sich nie ändern,
-sonst lassen sich Updates nicht mehr über die alte Version installieren.
+```sh
+./gradlew assembleDebug lintDebug
+# Optional: Release-Bundle bauen; produktive Signierung ist nicht konfiguriert.
+./gradlew bundleRelease
+```
 
-## Projekt
+Unter Windows `gradlew.bat` verwenden. Das Projekt kann auch in einer mit der Toolchain
+kompatiblen Android-Studio-Version geöffnet werden.
+
+- Debug-APK: `app/build/outputs/apk/debug/app-debug.apk`
+- Lint-Bericht: `app/build/reports/lint-results-debug.html`
+- Release-Bundle: `app/build/outputs/bundle/release/app-release.aab`
+
+Der Gradle-Build setzt Java-Quell- und Zielkompatibilität auf **21**. Das erhöht nicht
+`minSdk`: API 24 bleibt die Geräte-Untergrenze. Verfügbarkeit neuer Sprachfeatures und
+Java-APIs hängt dennoch von D8/AGP, Desugaring und Android ab; nicht jede JDK-21-API ist
+auf Android verfügbar. Core-Library-Desugaring ist derzeit nicht konfiguriert.
+`compileSdk` und `targetSdk` stehen auf **35**, nicht 36. Ein erzeugtes Bundle allein
+bedeutet daher noch keine Freigabe oder Erfüllung aller aktuellen Play-Store-Vorgaben.
+
+Es sind aktuell keine eigenen Unit- oder Instrumentation-Tests eingecheckt. Build und
+Lint ersetzen keinen Spieltest auf einem Gerät bzw. Emulator.
+
+## Alternativer APK-Build ohne installiertes Android-SDK
+
+Der aktuelle GitHub-Release-Workflow benutzt **nicht Gradle**, sondern
+`tools/build-ohne-sdk.sh`: JDK 21 führt `javac` mit **Java-8-Quell-/Bytecode-Ziel** aus,
+`dalvik-dx` erzeugt DEX, `mkapk.py` baut und signiert die APK. Dieser separate Weg
+unterstützt keine Java-21-Sprachfeatures; Änderungen am Quellcode müssen beide Wege
+berücksichtigen. Auch dieser Build setzt minSdk 24 und targetSdk 35.
+
+Benötigt werden Bash, JDK 21, Python 3 mit `cryptography`, ein API-35-`android.jar`
+und `com.jakewharton.android.repackaged:dalvik-dx:16.0.1`:
+
+```sh
+ANDROID_JAR=/pfad/android.jar \
+DX_JAR=/pfad/dalvik-dx-16.0.1.jar \
+tools/build-ohne-sdk.sh
+```
+
+Die APK landet in `build-ohne-sdk/wackel-popo.apk`. Ohne `KEYS_DIR` entstehen lokale
+Signaturschlüssel in `build-ohne-sdk/keys`; dieser Ausgabeordner wird beim nächsten
+Build gelöscht. Für eine stabile lokale Signatur einen externen `KEYS_DIR` verwenden.
+`VERSION_CODE` und `VERSION_NAME` überschreiben bei Bedarf `version.txt`.
+
+Die optionalen Asset-Generatoren `tools/icon.py` und `tools/kanadier.py` benötigen
+zusätzlich Pillow. Die erzeugten PNGs sind bereits eingecheckt.
+
+### Automatische GitHub-Releases
+
+Ein Push auf `main` oder ein manueller Start von `.github/workflows/release.yml` baut
+und veröffentlicht bei erfolgreichem Lauf `wackel-popo.apk` als `build-<versionCode>`.
+Der Workflow nutzt Temurin 21, Python 3.12, `cryptography` sowie heruntergeladene
+API-35-Stubs und dx. `versionCode` ist `100 + GITHUB_RUN_NUMBER`, der Versionsname
+kommt aus `version.txt`. Lint und eigene Tests sind keine Schritte dieses Workflows.
+
+Das Repo-Secret `SIGNING_PASSPHRASE` wird von `tools/release-key.py` deterministisch in
+den Release-Schlüssel umgewandelt. Es muss stark, geheim, gesichert und unverändert
+bleiben, damit Updates dieselbe Signatur behalten. Schlüssel und Passphrase gehören
+niemals ins Git-Repository. Dieses individuelle Signierungsverfahren ist kein Ersatz
+für ein separat geprüftes Release-/Play-App-Signing-Konzept.
+
+## Projektstruktur
 
 | Pfad | Inhalt |
 |---|---|
-| `app/src/main/java/de/kgoh/wackelpopo/` | der ganze Code; `WackelView` zeichnet und steuert das Spiel |
-| `app/src/main/assets/` | die zwei Hälften des Kanadier-Kopfs |
-| `tools/build-ohne-sdk.sh` | baut das APK ohne Android-SDK (javac + dx + `mkapk.py`) |
-| `tools/mkapk.py` | schreibt Manifest, Ressourcen und v2-Signatur selbst |
-| `tools/release-key.py` | leitet den Signaturschlüssel aus dem Passwort ab |
-| `tools/icon.py`, `tools/kanadier.py` | erzeugen App-Icon und Kanadier-Kopf |
-| `version.txt` | `<versionCode> <versionName>` für lokale Builds |
-
-**Selbst bauen:** Mit Android Studio öffnen oder `./gradlew assembleDebug` (braucht das Android-SDK).
-Ohne SDK:
-
-```
-ANDROID_JAR=/pfad/android.jar DX_JAR=/pfad/dalvik-dx-16.0.1.jar tools/build-ohne-sdk.sh
-```
-
-Das ergibt `build-ohne-sdk/wackel-popo.apk`, signiert mit einem lokalen Schlüssel in `build-ohne-sdk/keys`
-(oder `KEYS_DIR`). Ein so gebautes APK lässt sich nicht über die Release-Version installieren.
+| `app/src/main/java/de/kgoh/wackelpopo/` | Spiel, Fortschritt, Audio, Updates und Teilen |
+| `WackelView.java` im obigen Verzeichnis | Canvas-Darstellung, Eingaben und Spielablauf |
+| `app/src/main/assets/` | beide Hälften des Kanadier-Kopfs |
+| `app/src/main/res/` | Icon und App-Name |
+| `tools/build-ohne-sdk.sh` | alternativer javac/dx-Build |
+| `tools/mkapk.py` | binäres Manifest, Ressourcen und APK-v2-Signatur |
+| `tools/release-key.py` | deterministische Release-Schlüsselableitung |
+| `tools/icon.py`, `tools/kanadier.py` | PNG-Generatoren mit Pillow |
+| `version.txt` | lokale Versionsnummer und Versionsname |
+| `LICENSES` | MIT-Lizenz für die eigenen Projektbestandteile |
+| `THIRD-PARTY-LICENSES` | Fremdkomponenten, Lizenztexte und Verträglichkeit |
