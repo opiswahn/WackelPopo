@@ -10,8 +10,8 @@ aktualisiert sich die App selbst (siehe [Updates](#updates)).
 
 ## So wird gespielt
 
-Beim allerersten Spiel führt eine kurze Einführung durch alles: drei Treffer im Takt üben, dann vier Karten
-zum Durchtippen. Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm startet sie jederzeit wieder.
+Beim allerersten Spiel führt eine kurze Einführung durch alles: drei Treffer im Takt üben, dann sechs Karten
+zum Durchtippen (Zähler, Combo, Mehrfinger-Griffe, Shop, Goodies, Aufträge). Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm startet sie jederzeit wieder.
 
 - **Der Zähler** startet bei 25 und sinkt ständig, und zwar immer schneller (+1,1 % pro Sekunde, verdoppelt
   sich etwa jede Minute). Fällt er auf **−10**, ist das Spiel vorbei. Die ersten 8 Sekunden sind Aufwärmen

@@ -315,6 +315,7 @@ public class WackelView extends View {
     private static final String[][] TUTORIAL = {
             {"📉", "Der Zähler sinkt von allein.", "Fällt er unter −10, ist Schluss."},
             {"🔥", "Treffer hintereinander geben Combo.", "Ab Combo 16 kommt das Fieber!"},
+            {"🖐", "Mehrere Finger gleichzeitig = ein Griff.", "Im Takt bis x1,8, mehr Finger, mehr Bonus."},
             {"🛒", "Im Shop gibt es Upgrades.", "Solange er offen ist, wartet das Spiel."},
             {"🪂", "Fang die Goodies am Fallschirm.", "Aber Finger weg von der Stinkbombe!"},
             {"⭐", "Erledige Aufträge, steig im Level auf.", "Alle 5 Level gibt es mehr Startpunkte."},
@@ -322,6 +323,7 @@ public class WackelView extends View {
     private static final String[][] TUTORIAL_EN = {
             {"📉", "The counter drops all by itself.", "If it falls below −10, game over."},
             {"🔥", "Hits in a row build a combo.", "At combo 16 the fever kicks in!"},
+            {"🖐", "Several fingers at once = one grip.", "On the beat up to x1.8, more fingers, more bonus."},
             {"🛒", "The shop has upgrades.", "While it is open, the game waits."},
             {"🪂", "Catch the goodies on parachutes.", "But hands off the stink bomb!"},
             {"⭐", "Finish missions, level up.", "Every 5 levels: more start points."},
@@ -2497,7 +2499,7 @@ public class WackelView extends View {
         drawOutlined(c, card[1], w / 2f, box.top + unit * 0.32f, fit(card[1], unit * 0.056f, box.width() * 0.9f), INK, 0);
         drawOutlined(c, card[2], w / 2f, box.top + unit * 0.41f, fit(card[2], unit * 0.05f, box.width() * 0.9f), INK, 0);
         smallText(c, Lang.t("Tippen für weiter  ·  ", "Tap to continue  ·  ") + tutorial + Lang.t(" von ", " of ") + TUTORIAL.length, w / 2f, box.top + unit * 0.54f, INK);
-        if (tutorial == 3) {
+        if (tutorial == 4) {
             // Point at the shop corner.
             drawOutlined(c, "⬆", shopBtn.centerX(), shopBtn.bottom + unit * 0.12f, unit * 0.1f, GOLD, 0);
         } else if (tutorial == 1) {
