@@ -53,11 +53,11 @@ public class WackelView extends View {
     private static final double GAME_OVER_AT = -10;
     private static final double BASE_DRAIN = 0.85;
     /** The cool-down speeds up by this factor every second: doubles roughly every minute. */
-    private static final double DRAIN_GROWTH = 1.014;
+    private static final double DRAIN_GROWTH = 1.011;
     private static final double FEVER_BONUS = 1.25;
     private static final double CRIT_FACTOR = 3;
     /** Rhythm: a tap this close to the beat is PERFEKT, a bit further GUT, anything else DANEBEN. */
-    private static final float PERFECT_S = 0.09f, GOOD_S = 0.2f;
+    private static final float PERFECT_S = 0.1f, GOOD_S = 0.25f;
     /** Points every game starts with, and seconds of warm-up without drain or miss penalties. */
     private static final double START_POINTS = 25;
     private static final float WARMUP_S = 8f;
@@ -461,7 +461,7 @@ public class WackelView extends View {
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         if (hour < 4) special(Awards.NIGHT_OWL);
         if (hour >= 5 && hour < 7) special(Awards.EARLY_BIRD);
-        queueBanner("Finde den Takt!", "Klatsch, wenn der Ring sich schließt", Color.WHITE);
+        queueBanner("Klatsch im Takt!", "Tippen, wenn der äußere Ring den inneren trifft", Color.WHITE);
     }
 
     private void klatsch(float x, float y) {
@@ -488,6 +488,8 @@ public class WackelView extends View {
 
         // Judge the timing against the beat ring.
         float off = Math.abs(now - nextBeat);
+        // A second tap on a beat that already counted is simply ignored, it is not a miss.
+        if (nextBeatHit && off <= GOOD_S) return;
         lastJudge = nextBeatHit || off > GOOD_S ? 0 : (off <= PERFECT_S ? 2 : 1);
         chordOpen = true;
         chordStart = now;
@@ -497,12 +499,10 @@ public class WackelView extends View {
         chordHit = lastJudge > 0;
         if (!chordHit) {
             // Off the beat: costs what a tap would bring and breaks the combo, so hammering does not pay.
-            // Half a tap and nothing during warm-up, so a few slips never end a game but hammering still drains.
-            double loss = playTime < WARMUP_S ? 0 : shop.tapGain(false) * 0.5;
-            counter -= loss;
+            // Off the beat costs no points, it only brings nothing and ends the combo.
             chordGain = 0;
-            if (loss > 0) floatText("−" + fmt(loss), x, y, 0xFFB0BEC5, 0.8f, 0);
-            word("Daneben", popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
+            boolean late = now - (nextBeat - beatInterval()) < beatInterval() / 2f;
+            word(late ? "Zu spät" : "Zu früh", popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
             breakCombo();
             // Four misses within two seconds is hammering: time for the Kanadier.
             missTimes[missIndex++ % missTimes.length] = now;
