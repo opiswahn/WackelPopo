@@ -15,6 +15,9 @@ public final class Daily {
     public static final String[] TEXTS = {"Fang 4 Goodies", "Überlebe 4 Minuten", "Schaffe 8.000 Klatscher",
             "Besiege einen Boss", "Mach 5 Symmetrie-Klatscher (2+2 Finger)", "Erreiche den Fieber-Modus",
             "Kaufe 10 Upgrades", "Überlebe 2 Minuten ohne Shop", "Fang 2 Bonus-Sterne", "Lass 2 Stinkbomben fallen"};
+    public static final String[] TEXTS_EN = {"Catch 4 Goodies", "Survive 4 minutes", "Score 8,000 slaps",
+            "Defeat a boss", "Do 5 symmetry slaps (2+2 fingers)", "Reach Fever mode",
+            "Buy 10 upgrades", "Survive 2 minutes without the shop", "Catch 2 bonus stars", "Let 2 Stink Bombs drop"};
     public static final int[] GOALS = {4, 240, 8000, 1, 5, 1, 10, 120, 2, 2};
 
     private final SharedPreferences prefs;

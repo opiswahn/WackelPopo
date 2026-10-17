@@ -41,6 +41,40 @@ public final class Awards {
             "Hall of Fame-Hintern", "Legendärer Wackelkönig", "Allmächtiger Schwabbel", "Der Eine Popo", "POPO-UNIVERSUM",
     };
 
+    /** English twin of NAMES, same order. */
+    public static final String[] NAMES_EN = {
+            // 1-10: beginners
+            "First Slap", "Cheek Intern", "Wobble Apprentice", "Slap Cadet", "Hiney Hero",
+            "Jiggle Student", "Booty Pioneer", "Cheek Tamer", "Jelly Guardian", "Captain Slap",
+            // 11-20
+            "Peach Prince", "Bouncy Ball Guru", "Hip-Swing Hero", "Booty Bard", "Sit-Still Sensei",
+            "Double-Cheek Diploma", "Jiggle Sheriff", "Slap-Poppy Gardener", "Gym-Shorts Titan", "Wobble Wonderkid",
+            // 21-30
+            "Trouser-Seat Chief", "Professor Booty", "Baron von Slap", "Wobble Viking", "Slap Inspector",
+            "Jelly General", "Pudding Pirate", "Behind Bouncer", "Plop Pilot", "Knight of Curves",
+            // 31-40
+            "Wobble Globetrotter", "Booty Paparazzo", "Swing Shaman", "Rump Boss", "Slap Emperor",
+            "Bedspring Baron", "Jiggle Samurai", "Duke of Hop-Hop", "Buttock Pilot", "Cushion Chancellor",
+            // 41-50
+            "Wobble Wizard", "Gummy Bear Count", "Trampoline Tycoon", "Boing Ambassador", "Swing Sheik",
+            "Wobble World Champ", "President Booty", "Slap Comet", "Peach Pharaoh", "Halftime Hiney",
+            // 51-60
+            "Air-Cushion Legend", "Wobble Skyscraper", "Bouncy Castle Ruler", "Wobble Volcano", "Jiggle Supernova",
+            "Booty North Star", "Slap Hurricane", "Cheek Lightning", "Wobble Tornado", "Pudding Planet",
+            // 61-70
+            "Galactic Glute Guru", "Moon Moonwalker", "Stardust Sitter", "Wobble Astronaut", "Booty Pulsar",
+            "Black Wobble Hole", "Comet Slapper", "Milky Way Mover", "Nebula Noodler", "Big Bang Wobbler",
+            // 71-80
+            "Time-Travel Twitcher", "Dino Disco Dancer", "Sir Roundabout", "Wobble Wiki Author", "Booty Philosopher",
+            "Slap Composer", "Jiggle Symphony", "Wobble Opera", "Pudding Picasso", "Mona Booty",
+            // 81-90
+            "Wobble Wonder of the World", "Booty Pyramid", "Eiffel Wobble Tower", "Statue of Booty", "Great Booty of Giza",
+            "Wobble Atlantis", "Mount Slapympus", "Cheek Pantheon", "Eternal Wobble", "Infinite Jiggle",
+            // 91-100
+            "Wobble Deity", "Cosmic Slapper", "Multiverse Booty", "Quantum Wobbler", "Booty of the Millennium",
+            "Hall of Fame Hiney", "Legendary Wobble King", "Almighty Jiggle", "The One Booty", "BOOTY UNIVERSE",
+    };
+
     public static final int COUNT = NAMES.length;
 
     /** Special awards for doing something remarkable rather than reaching a score. */
@@ -84,6 +118,49 @@ public final class Awards {
             {"Goldener Hintern", "Verwandle den Popo in den Gold-Popo"},
             {"Vulkan-Po", "Verwandle den Popo in den Lava-Popo"},
             {"Mega-Bezwinger", "Besiege einen Mega-Boss"},
+    };
+
+    /** English twin of SPECIALS, same order: {name, how to get it}. */
+    public static final String[][] SPECIALS_EN = {
+            {"Two-Hander", "Slap with two fingers at once"},
+            {"Symmetrician", "2 fingers left + 2 right"},
+            {"Leaning Tower of Pisa", "3 fingers on one side, 1 on the other"},
+            {"Hex Master", "3 fingers left + 3 right"},
+            {"Octopus", "4 fingers left + 4 right"},
+            {"Ten-Finger God", "5 fingers left + 5 right"},
+            {"Rhythm Master", "The same grip 5 times in a row"},
+            {"Fever Frenzy", "Reach Fever mode"},
+            {"Chronic Fever", "30 seconds straight in Fever mode"},
+            {"Tap Machine", "12 slaps in one second"},
+            {"Rapid Fire", "1,000 slaps in one game"},
+            {"Slap Marathon", "5,000 slaps in one game"},
+            {"Hang In There", "Survive 3 minutes"},
+            {"Iron Booty", "Survive 10 minutes"},
+            {"Immortal", "Survive 20 minutes"},
+            {"Close Shave", "Slip below -9 and fight back into the plus"},
+            {"Comeback Kid", "From the minus all the way to 1,000 points"},
+            {"Shopping Queen", "25 upgrades in one game"},
+            {"Penny Pincher", "500 points on the Counter without buying"},
+            {"Scrooge", "1 million points on the Counter"},
+            {"Star Catcher", "Catch a bonus star"},
+            {"Star Collector", "Catch 5 bonus stars in one game"},
+            {"Lucky Duck", "3 crit slaps in a row"},
+            {"Maxed Out", "Max out an upgrade"},
+            {"Golden Boy", "Golden Booty at level 5"},
+            {"Night Owl", "Play between midnight and 4 a.m."},
+            {"Early Bird", "Play between 5 and 7 a.m."},
+            {"Regular", "Play 10 games"},
+            {"Booty Veteran", "Play 50 games"},
+            {"Hoarder", "Collect 50 normal awards"},
+            {"Goodie Hunter", "Catch 10 Goodies in one game"},
+            {"Gift Time", "Open a gift Goodie"},
+            {"Nose Clip", "Catch a Stink Bomb (your own fault!)"},
+            {"Dodge Master", "Let 3 Stink Bombs drop in one game"},
+            {"Boss Beater", "Defeat a Boss Booty"},
+            {"Boss Hunter", "Defeat 3 Boss Booties in one game"},
+            {"Golden Behind", "Turn the Booty into the Gold Booty"},
+            {"Volcano Booty", "Turn the Booty into the Lava Booty"},
+            {"Mega Slayer", "Defeat a Mega Boss"},
     };
 
     public static final int TWO_FINGERS = 0, SYMMETRY = 1, PISA = 2, WITCH = 3, OCTOPUS = 4, TEN_FINGERS = 5,

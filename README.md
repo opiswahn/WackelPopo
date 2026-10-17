@@ -11,7 +11,7 @@ aktualisiert sich die App selbst (siehe [Updates](#updates)).
 ## So wird gespielt
 
 Beim allerersten Spiel führt eine kurze Einführung durch alles: drei Treffer im Takt üben, dann vier Karten
-zum Durchtippen. Der ❓-Knopf rechts oben auf dem Startbildschirm startet sie jederzeit wieder.
+zum Durchtippen. Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm startet sie jederzeit wieder.
 
 - **Der Zähler** startet bei 25 und sinkt ständig, und zwar immer schneller (+1,1 % pro Sekunde, verdoppelt
   sich etwa jede Minute). Fällt er auf **−10**, ist das Spiel vorbei. Die ersten 8 Sekunden sind Aufwärmen
@@ -85,13 +85,15 @@ zum Durchtippen. Der ❓-Knopf rechts oben auf dem Startbildschirm startet sie j
 (104 BPM), der Spiel-Song (152 BPM) und ein schnellerer Song einen Ton höher für Fieber und Boss (176 BPM).
 Die Lautstärke folgt dem Geschehen; 🎸/🔇 unter dem Pokal schaltet sie ab.
 
+**Sprache:** Der Knopf DE/EN rechts oben schaltet zwischen Deutsch und Englisch um, auch mitten im Spiel.
+
 Die Versionsnummer steht klein unten links.
 
 ## Updates
 
 Jeder Push auf `main` startet `.github/workflows/release.yml`: Es baut das APK, signiert es und
 veröffentlicht es als Release `build-<versionCode>` mit der Datei `wackel-popo.apk`
-(versionCode = 100 + Build-Nummer, Versionsname = `version.txt` + Build-Nummer).
+(versionCode = 100 + Build-Nummer, Versionsname aus `version.txt`, die Build-Nummer steht im Release-Titel).
 
 Die App fragt beim Start das neueste Release ab. Ist es neuer, erscheint unten auf dem Startbildschirm
 „⬇ Neue Version …“; ein Tipp lädt und installiert es. Beim ersten Mal fragt Android, ob die App andere Apps

@@ -54,8 +54,9 @@ jobs:
           read -r _ name < version.txt
           # Jeder Build bekommt einen höheren versionCode, damit die App ihn als neu erkennt.
           echo "VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
-          echo "VERSION_NAME=$name.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
-          VERSION_CODE=$((100 + GITHUB_RUN_NUMBER)) VERSION_NAME="$name.$GITHUB_RUN_NUMBER" \
+          # Der Versionsname kommt unverändert aus version.txt, die Build-Nummer steht nur im Release-Titel.
+          echo "VERSION_NAME=$name" >> "$GITHUB_ENV"
+          VERSION_CODE=$((100 + GITHUB_RUN_NUMBER)) VERSION_NAME="$name" \
             ANDROID_JAR="$RUNNER_TEMP/tools/android.jar" DX_JAR="$RUNNER_TEMP/tools/dx.jar" KEYS_DIR="$RUNNER_TEMP/keys" \
             tools/build-ohne-sdk.sh
 
@@ -65,4 +66,4 @@ jobs:
         run: |
           git log -1 --pretty=%B > notes.txt
           gh release create "build-$VERSION_CODE" build-ohne-sdk/wackel-popo.apk \
-            --title "Wackel-Popo $VERSION_NAME" --notes-file notes.txt --latest
+            --title "Wackel-Popo $VERSION_NAME (Build $GITHUB_RUN_NUMBER)" --notes-file notes.txt --latest

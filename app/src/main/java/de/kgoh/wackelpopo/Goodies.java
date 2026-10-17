@@ -11,6 +11,10 @@ public final class Goodies {
             "Klatsch-Roboter", "Stinkbombe", "Sternen-Magnet"};
     public static final String[] EFFECTS = {"Bonus-Punkte!", "Counter sinkt nicht", "Klatscher x2", "Krit-Chance +25 %",
             "Gratis-Upgrade!", "+3 Auto-Klatscher/s", "Pfui! −15 %", "Nächster Stern sofort!"};
+    public static final String[] NAMES_EN = {"Peach", "Frost Break", "Choco Power", "Lucky Clover", "Gift",
+            "Slap Robot", "Stink Bomb", "Star Magnet"};
+    public static final String[] EFFECTS_EN = {"Bonus points!", "Counter won't drop", "Slaps x2", "Crit chance +25%",
+            "Free upgrade!", "+3 auto slaps/s", "Yuck! −15%", "Next star right now!"};
     /** Seconds a timed goodie lasts; 0 means it acts at once. */
     public static final float[] SECONDS = {0, 8, 10, 10, 0, 10, 0, 0};
     private static final int[] WEIGHTS = {30, 14, 14, 12, 7, 12, 8, 6};

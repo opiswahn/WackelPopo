@@ -110,7 +110,8 @@ public class WackelView extends View {
     private final Awards awards;
     private final Shop shop = new Shop();
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM. HH:mm", Locale.GERMANY);
-    private final NumberFormat intFormat = NumberFormat.getIntegerInstance(Locale.GERMANY);
+    private final NumberFormat intDe = NumberFormat.getIntegerInstance(Locale.GERMANY);
+    private final NumberFormat intEn = NumberFormat.getIntegerInstance(Locale.US);
 
     private final long start = System.nanoTime();
     private float now;
@@ -211,16 +212,20 @@ public class WackelView extends View {
     // Boss popos: every couple of minutes the popo turns into a boss that has to be clapped away in time.
     private static final String[] BOSS_NAMES = {"Graf Gesäß", "Backzilla", "König Wabbel", "Der Eiserne Hintern",
             "Popozilla", "Baron von Backe"};
+    private static final String[] BOSS_NAMES_EN = {"Count Cheeks", "Buttzilla", "King Wobble", "The Iron Bottom",
+            "Bootyzilla", "Baron von Bum"};
     private static final float BOSS_SECONDS = 20f;
     private boolean bossActive;
     private int bossHp, bossMaxHp, bossesBeaten;
     private float bossEnd, nextBossAt, bossHitAt = -10f;
-    private String bossName = "";
+    private int bossIndex;
 
     // Popo evolution: at these Klatscher in one game the popo transforms for the rest of the game.
     private static final long[] EVO_AT = {1000, 5000, 15000, 40000, 100000, 250000};
     private static final String[] EVO_NAMES = {"Bronze-Popo", "Silber-Popo", "Gold-Popo", "Regenbogen-Popo",
             "Galaxie-Popo", "Lava-Popo"};
+    private static final String[] EVO_NAMES_EN = {"Bronze Booty", "Silver Booty", "Gold Booty", "Rainbow Booty",
+            "Galaxy Booty", "Lava Booty"};
     private static final int[] EVO_COLORS = {0xFFD7A26B, 0xFFCFD8DC, 0xFFFFD54F, 0xFFFF80AB, 0xFF5E35B1, 0xFFFF7043};
     /** Stages that summon a Mega-Boss right after the transformation (Gold and Galaxie). */
     private static final boolean[] EVO_MEGA = {false, false, true, false, true, false};
@@ -241,6 +246,9 @@ public class WackelView extends View {
     private static final String[] SHARE_LINES = {"Schlag das, wenn du kannst!", "Mein Popo ist schneller als deiner!",
             "Hier wird nicht gekleckert, hier wird geklatscht!", "Wackel-Weltmeister am Werk!",
             "Die Backen glühen noch!", "Wer klatscht mehr?"};
+    private static final String[] SHARE_LINES_EN = {"Beat that if you can!", "My booty is faster than yours!",
+            "No half measures here, only full slaps!", "Wobble world champ at work!",
+            "The cheeks are still glowing!", "Who slaps more?"};
     private final android.content.SharedPreferences settings;
 
     // Layout.
@@ -249,6 +257,7 @@ public class WackelView extends View {
     private final RectF shopBtn = new RectF();
     private final RectF musicBtn = new RectF();
     private final RectF helpBtn = new RectF();
+    private final RectF langBtn = new RectF();
     /** Guided intro: -1 off, 0 practise three beats, 1..TUTORIAL_CARDS short cards while the game waits. */
     private int tutorial = -1;
     private int tutorialHits;
@@ -257,6 +266,12 @@ public class WackelView extends View {
             {"🔥", "Treffer hintereinander geben Combo.", "Ab Combo 16 kommt das Fieber!"},
             {"🛒", "Im Shop gibt es Upgrades.", "Solange er offen ist, wartet das Spiel."},
             {"🪂", "Fang die Goodies am Fallschirm.", "Aber Finger weg von der Stinkbombe!"},
+    };
+    private static final String[][] TUTORIAL_EN = {
+            {"📉", "The counter drops all by itself.", "If it falls below −10, game over."},
+            {"🔥", "Hits in a row build a combo.", "At combo 16 the fever kicks in!"},
+            {"🛒", "The shop has upgrades.", "While it is open, the game waits."},
+            {"🪂", "Catch the goodies on parachutes.", "But hands off the stink bomb!"},
     };
     private final RectF card = new RectF();
     private final RectF closeBtn = new RectF();
@@ -289,6 +304,7 @@ public class WackelView extends View {
             for (int i = 0; i < wardrobeCells[cat].length; i++) wardrobeCells[cat][i] = new RectF();
         }
         musicOn = settings.getBoolean("music", true);
+        Lang.en = settings.getBoolean("english", false);
         for (int i = 0; i < shopRows.length; i++) shopRows[i] = new RectF();
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeCap(Paint.Cap.ROUND);
@@ -311,7 +327,8 @@ public class WackelView extends View {
         shopBtn.set(m, top, m + s, top + s);
         float ms = s * 0.75f;
         musicBtn.set(w - m - ms, top + s + m * 0.5f, w - m, top + s + m * 0.5f + ms);
-        helpBtn.set(musicBtn.left, musicBtn.bottom + m * 0.5f, musicBtn.right, musicBtn.bottom + m * 0.5f + ms);
+        langBtn.set(musicBtn.left, musicBtn.bottom + m * 0.5f, musicBtn.right, musicBtn.bottom + m * 0.5f + ms);
+        helpBtn.set(langBtn.left, langBtn.bottom + m * 0.5f, langBtn.right, langBtn.bottom + m * 0.5f + ms);
         card.set(unit * 0.05f, h * 0.1f, w - unit * 0.05f, h * 0.92f);
     }
 
@@ -375,6 +392,12 @@ public class WackelView extends View {
             settings.edit().putBoolean("music", musicOn).apply();
             if (musicOn) Music.start();
             else Music.stop();
+            return true;
+        }
+        if (firstFinger && langBtn.contains(x, y)) {
+            // Works any time, even mid-round; every text picks its language when it is drawn.
+            Lang.en = !Lang.en;
+            settings.edit().putBoolean("english", Lang.en).apply();
             return true;
         }
         if (firstFinger && state == READY && helpBtn.contains(x, y)) {
@@ -484,7 +507,8 @@ public class WackelView extends View {
         if (hour >= 5 && hour < 7) special(Awards.EARLY_BIRD);
         tutorial = settings.getBoolean("tutorialDone", false) ? -1 : 0;
         tutorialHits = 0;
-        if (tutorial < 0) queueBanner("Klatsch im Takt!", "Tippen, wenn der äußere Ring den inneren trifft", Color.WHITE);
+        if (tutorial < 0) queueBanner(Lang.t("Klatsch im Takt!", "Slap to the beat!"),
+                Lang.t("Tippen, wenn der äußere Ring den inneren trifft", "Tap when the outer ring meets the inner one"), Color.WHITE);
     }
 
     private void klatsch(float x, float y) {
@@ -525,13 +549,13 @@ public class WackelView extends View {
             // Off the beat costs no points, it only brings nothing and ends the combo.
             chordGain = 0;
             boolean late = now - (nextBeat - beatInterval()) < beatInterval() / 2f;
-            word(late ? "Zu spät" : "Zu früh", popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
+            word(late ? Lang.t("Zu spät", "Too late") : Lang.t("Zu früh", "Too early"), popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
             breakCombo();
             // Four misses within two seconds is hammering: time for the Kanadier.
             missTimes[missIndex++ % missTimes.length] = now;
             boolean hammering = true;
             for (float t : missTimes) hammering &= now - t < 2f;
-            if (hammering) kanadier("Einfach mal NEIN sagen!");
+            if (hammering) kanadier(Lang.t("Einfach mal NEIN sagen!", "Just say NO for once!"));
             return;
         }
         nextBeatHit = true;
@@ -573,11 +597,11 @@ public class WackelView extends View {
             p.vy = -popoR * 1.5f;
             p.vr = 300f;
         }
-        floatText((crit ? "KRIT! +" : "+") + fmt(gain), x, y, crit ? GOLD : Color.WHITE, crit ? 1.3f : 0.9f, crit ? 2 : 0);
-        word(lastJudge == 2 ? "PERFEKT!" : "Gut", popoX, popoY - popoR * 1.35f, lastJudge == 2 ? GOLD : Color.WHITE,
+        floatText((crit ? Lang.t("KRIT! +", "CRIT! +") : "+") + fmt(gain), x, y, crit ? GOLD : Color.WHITE, crit ? 1.3f : 0.9f, crit ? 2 : 0);
+        word(lastJudge == 2 ? Lang.t("PERFEKT!", "PERFECT!") : Lang.t("Gut", "Good"), popoX, popoY - popoR * 1.35f, lastJudge == 2 ? GOLD : Color.WHITE,
                 lastJudge == 2 ? 1f : 0.8f, 0);
         if (combo % 10 == 0) {
-            word("Combo x" + combo + "! " + Words.pick(Words.PRAISE, rnd), popoX, popoY - popoR * 1.75f, GOLD, 1.1f, 5);
+            word("Combo x" + combo + "! " + Words.pick(Lang.pick(Words.PRAISE, Words.PRAISE_EN), rnd), popoX, popoY - popoR * 1.75f, GOLD, 1.1f, 5);
             Synth.melody(new float[]{784, 1047}, 0.06f);
         }
     }
@@ -641,7 +665,7 @@ public class WackelView extends View {
             word(label, popoX, popoY - popoR * (0.5f + 0.1f * chord.tier), PARTY[rnd.nextInt(PARTY.length)],
                     1f + 0.1f * chord.tier, chord.tier >= 2 ? 1 : 0);
         } else if (chordRepeat == 3 || chordRepeat == 5) {
-            word("Serie x" + chordRepeat + "!", popoX, popoY + popoR * 1.9f, GOLD, 1f, 6);
+            word(Lang.t("Serie x", "Streak x") + chordRepeat + "!", popoX, popoY + popoR * 1.9f, GOLD, 1f, 6);
         }
         floatText("+" + fmt(bonus), popoX, popoY + popoR * 0.5f, GREEN, 1f, 0);
 
@@ -685,7 +709,7 @@ public class WackelView extends View {
         double bonus = Math.max(20, 6 * drainRate() + 8 * shop.tapGain(false));
         counter += bonus;
         total += bonus;
-        queueBanner("STERN GEFANGEN!", "+" + fmt(bonus), GOLD);
+        queueBanner(Lang.t("STERN GEFANGEN!", "STAR CAUGHT!"), "+" + fmt(bonus), GOLD);
         sparkles(50);
         for (int i = 0; i < 40; i++) {
             Particle p = spawn(starX, starY, SHAPE_STAR, i % 2 == 0 ? GOLD : Color.WHITE, popoR * 0.1f, 1.2f);
@@ -713,7 +737,7 @@ public class WackelView extends View {
         upgradesBought++;
         Synth.melody(new float[]{659, 988}, 0.08f);
         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-        word(Words.pick(Words.BUY, rnd), getWidth() / 2f, card.top + unit * 0.3f, GREEN, 1f, 0);
+        word(Words.pick(Lang.pick(Words.BUY, Words.BUY_EN), rnd), getWidth() / 2f, card.top + unit * 0.3f, GREEN, 1f, 0);
         if (upgradesBought >= 25) special(Awards.SHOPPER);
         if (shop.maxed(i)) special(Awards.MAXED);
         if (shop.level(Shop.GOLD) >= 5) special(Awards.GOLDEN);
@@ -745,7 +769,8 @@ public class WackelView extends View {
             }
             if (now >= nextSteamWordAt) {
                 nextSteamWordAt = now + 6f;
-                String[] hot = {"Aua, heiß!", "Feuerrot!", "Glühpopo!", "Tomaten-Alarm!", "Der brennt!"};
+                String[] hot = Lang.pick(new String[]{"Aua, heiß!", "Feuerrot!", "Glühpopo!", "Tomaten-Alarm!", "Der brennt!"},
+                        new String[]{"Ouch, hot!", "Fire red!", "Glow booty!", "Tomato alert!", "It's burning!"});
                 word(hot[rnd.nextInt(hot.length)], popoX, popoY - popoR * 1.5f, 0xFFFF1744, 1.2f, rnd.nextInt(Words.STYLES));
             }
         }
@@ -760,12 +785,12 @@ public class WackelView extends View {
             if (counter < -9) belowNine = true;
             if (now >= nextWordAt) {
                 nextWordAt = now + 1.3f;
-                word(Words.pick(Words.DANGER, rnd), popoX + (rnd.nextFloat() - 0.5f) * popoR * 2, popoY - popoR * 1.3f, RED, 1.1f, 4);
+                word(Words.pick(Lang.pick(Words.DANGER, Words.DANGER_EN), rnd), popoX + (rnd.nextFloat() - 0.5f) * popoR * 2, popoY - popoR * 1.3f, RED, 1.1f, 4);
             }
         } else if (belowNine) {
             belowNine = false;
             special(Awards.CLOSE_CALL);
-            word(Words.pick(Words.RESCUE, rnd), popoX, popoY - popoR * 1.4f, GREEN, 1.4f, 2);
+            word(Words.pick(Lang.pick(Words.RESCUE, Words.RESCUE_EN), rnd), popoX, popoY - popoR * 1.4f, GREEN, 1.4f, 2);
         }
         if (wasNegative && counter >= 1000) special(Awards.COMEBACK);
         if (upgradesBought == 0 && counter >= 500) special(Awards.MISER);
@@ -781,7 +806,8 @@ public class WackelView extends View {
     private void startFever() {
         fever = true;
         feverStart = now;
-        queueBanner("FIEBER-MODUS!", "Combo " + FEVER_COMBO + ": alles x1,25, bleib im Takt!", RED);
+        queueBanner(Lang.t("FIEBER-MODUS!", "FEVER MODE!"), "Combo " + FEVER_COMBO
+                + Lang.t(": alles x1,25, bleib im Takt!", ": everything x1.25, stay on the beat!"), RED);
         Synth.melody(new float[]{523, 659, 784, 1047}, 0.06f);
         special(Awards.FEVER);
         feverReached = true;
@@ -789,11 +815,11 @@ public class WackelView extends View {
 
     /** A missed beat or a tap off the beat ends the combo (and with it the fever). */
     private void breakCombo() {
-        if (combo >= 10) word("Combo weg!", popoX, popoY - popoR * 1.75f, 0xFFB0BEC5, 1f, 0);
+        if (combo >= 10) word(Lang.t("Combo weg!", "Combo lost!"), popoX, popoY - popoR * 1.75f, 0xFFB0BEC5, 1f, 0);
         combo = 0;
         if (fever) {
             fever = false;
-            word("Fieber vorbei", popoX, popoY - popoR * 1.55f, Color.WHITE, 0.9f, 0);
+            word(Lang.t("Fieber vorbei", "Fever over"), popoX, popoY - popoR * 1.55f, Color.WHITE, 0.9f, 0);
         }
     }
 
@@ -892,8 +918,9 @@ public class WackelView extends View {
             bossActive = true;
             bossMaxHp = bossHp = (15 + 5 * bossesBeaten) * (megaBoss ? 2 : 1);
             bossEnd = playTime + BOSS_SECONDS;
-            bossName = (megaBoss ? "MEGA-" : "") + BOSS_NAMES[rnd.nextInt(BOSS_NAMES.length)];
-            queueBanner(megaBoss ? "MEGA-BOSS!" : "BOSS-POPO!", bossName + " · " + bossMaxHp + " Treffer im Takt in 20 s!", PURPLE);
+            bossIndex = rnd.nextInt(BOSS_NAMES.length);
+            queueBanner(megaBoss ? "MEGA-BOSS!" : Lang.t("BOSS-POPO!", "BOSS BOOTY!"), bossName() + " · " + bossMaxHp
+                    + Lang.t(" Treffer im Takt in 20 s!", " hits on the beat in 20 s!"), PURPLE);
             Synth.melody(new float[]{98, 0, 98, 0, 117, 98}, 0.1f);
             shakeUntil = now + 0.6f;
             vibrate(new long[]{0, 200, 80, 200});
@@ -902,15 +929,20 @@ public class WackelView extends View {
             bossActive = false;
             nextBossAt = playTime + 100f + rnd.nextFloat() * 40f;
             megaBoss = false;
-            word("Boss entkommen!", popoX, popoY - popoR * 1.5f, Color.WHITE, 1.2f, 4);
+            word(Lang.t("Boss entkommen!", "Boss escaped!"), popoX, popoY - popoR * 1.5f, Color.WHITE, 1.2f, 4);
             Synth.melody(new float[]{392, 370, 349, 330}, 0.12f);
         }
+    }
+
+    /** The boss name in the current language, looked up each time so a language switch shows at once. */
+    private String bossName() {
+        return (megaBoss ? "MEGA-" : "") + Lang.pick(BOSS_NAMES, BOSS_NAMES_EN)[bossIndex];
     }
 
     /** The popo transforms into the next stage: new colour, aura and a big show; some stages call a Mega-Boss. */
     private void evolve(int stage) {
         evoStart = now;
-        queueBanner("POPO-EVOLUTION!", "✨ " + EVO_NAMES[stage] + " ✨", EVO_COLORS[stage]);
+        queueBanner(Lang.t("POPO-EVOLUTION!", "BOOTY EVOLUTION!"), "✨ " + Lang.pick(EVO_NAMES, EVO_NAMES_EN)[stage] + " ✨", EVO_COLORS[stage]);
         flashUntil = now + 0.35f;
         punch = 0.1f;
         startMove(MOVE_SPIN, 1.2f, 1f, 4);
@@ -951,7 +983,8 @@ public class WackelView extends View {
         wardrobe.addTaler(taler);
         talerThisGame += taler;
         String loot = rnd.nextFloat() < 0.35f ? wardrobe.gift(rnd) : null;
-        queueBanner("BOSS BESIEGT!", "+" + fmt(bonus) + " · +" + taler + " Taler" + (loot != null ? " · Beute: " + loot : ""), GOLD);
+        queueBanner(Lang.t("BOSS BESIEGT!", "BOSS DEFEATED!"), "+" + fmt(bonus) + " · +" + taler + Lang.t(" Taler", " Booty Coins")
+                + (loot != null ? Lang.t(" · Beute: ", " · Loot: ") + loot : ""), GOLD);
         confetti(90);
         for (int k = 0; k < 4; k++) {
             pendingBursts.add(new float[]{now + k * 0.25f, getWidth() * (0.15f + 0.7f * rnd.nextFloat()),
@@ -998,7 +1031,8 @@ public class WackelView extends View {
         int taler = daily.complete();
         wardrobe.addTaler(taler);
         talerThisGame += taler;
-        queueBanner("TAGES-CHALLENGE GESCHAFFT!", "+" + taler + " Taler · 🔥 " + daily.streak() + " Tage in Folge", GREEN);
+        queueBanner(Lang.t("TAGES-CHALLENGE GESCHAFFT!", "DAILY CHALLENGE DONE!"), "+" + taler + Lang.t(" Taler · 🔥 ", " Booty Coins · 🔥 ")
+                + daily.streak() + Lang.t(" Tage in Folge", " days in a row"), GREEN);
         confetti(60);
         Synth.melody(new float[]{523, 659, 784, 1047}, 0.09f);
     }
@@ -1012,15 +1046,19 @@ public class WackelView extends View {
             Paint grad = new Paint();
             grad.setShader(new RadialGradient(bw / 2f, bh / 2f, bh * 0.7f, 0xFFFFF176, 0xFFFFB300, Shader.TileMode.CLAMP));
             c.drawRect(0, 0, bw, bh, grad);
-            drawOutlined(c, "Wackel-Popo", bw / 2f, 150, 110, INK, 0);
+            drawOutlined(c, Lang.t("Wackel-Popo", "Wobble Booty"), bw / 2f, 150, 110, INK, 0);
             float savedEnergy = energy;
             energy = 0.8f;
             drawPopo(c, bw / 2f, 560, 210, 1.2f);
             energy = savedEnergy;
-            drawOutlined(c, fmt(total) + " Klatscher", bw / 2f, 1010, fit(fmt(total) + " Klatscher", 120, bw * 0.9f), GOLD, 0);
-            String line1 = newRecord ? "NEUER REKORD!" : (lastPlace > 0 ? "Platz " + lastPlace + " in meiner Bestenliste" : "Gleich nochmal!");
+            String score = fmt(total) + Lang.t(" Klatscher", " slaps");
+            drawOutlined(c, score, bw / 2f, 1010, fit(score, 120, bw * 0.9f), GOLD, 0);
+            String line1 = newRecord ? Lang.t("NEUER REKORD!", "NEW RECORD!") : (lastPlace > 0
+                    ? Lang.t("Platz " + lastPlace + " in meiner Bestenliste", "#" + lastPlace + " on my leaderboard")
+                    : Lang.t("Gleich nochmal!", "Again, right now!"));
             drawOutlined(c, line1, bw / 2f, 1120, fit(line1, 64, bw * 0.9f), Color.WHITE, 0);
-            String quote = SHARE_LINES[rnd.nextInt(SHARE_LINES.length)];
+            String[] lines = Lang.pick(SHARE_LINES, SHARE_LINES_EN);
+            String quote = lines[rnd.nextInt(lines.length)];
             drawOutlined(c, quote, bw / 2f, 1240, fit(quote, 56, bw * 0.9f), INK, 0);
             java.io.FileOutputStream out = new java.io.FileOutputStream(ShareProvider.file(getContext()));
             bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out);
@@ -1030,12 +1068,13 @@ public class WackelView extends View {
             android.content.Intent send = new android.content.Intent(android.content.Intent.ACTION_SEND);
             send.setType("image/png");
             send.putExtra(android.content.Intent.EXTRA_STREAM, ShareProvider.URI);
-            send.putExtra(android.content.Intent.EXTRA_TEXT, "Ich hab " + fmt(total) + " Klatscher beim Wackel-Popo geschafft! " + quote);
+            send.putExtra(android.content.Intent.EXTRA_TEXT, Lang.t("Ich hab " + fmt(total) + " Klatscher beim Wackel-Popo geschafft! ",
+                    "I scored " + fmt(total) + " slaps in Wobble Booty! ") + quote);
             send.setClipData(android.content.ClipData.newRawUri("", ShareProvider.URI));
             send.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            getContext().startActivity(android.content.Intent.createChooser(send, "Rekord teilen"));
+            getContext().startActivity(android.content.Intent.createChooser(send, Lang.t("Rekord teilen", "Share record")));
         } catch (Exception e) {
-            word("Teilen klappt gerade nicht", popoX, popoY, RED, 1f, 0);
+            word(Lang.t("Teilen klappt gerade nicht", "Sharing doesn't work right now"), popoX, popoY, RED, 1f, 0);
         }
     }
 
@@ -1069,7 +1108,7 @@ public class WackelView extends View {
                 p.grow = unit * 0.05f;
             }
             if (goodie == Goodies.STINK) {
-                word("Puh, ausgewichen!", goodieX, landY - unit * 0.05f, GREEN, 0.9f, 0);
+                word(Lang.t("Puh, ausgewichen!", "Phew, dodged it!"), goodieX, landY - unit * 0.05f, GREEN, 0.9f, 0);
                 if (++stinkDodged >= 3) special(Awards.DODGER);
             }
             goodie = -1;
@@ -1079,7 +1118,7 @@ public class WackelView extends View {
     private void catchGoodie() {
         int g = goodie;
         goodie = -1;
-        String effect = Goodies.EFFECTS[g];
+        String effect = Lang.pick(Goodies.EFFECTS, Goodies.EFFECTS_EN)[g];
         int color = GOLD;
         switch (g) {
             case Goodies.PEACH: {
@@ -1098,7 +1137,7 @@ public class WackelView extends View {
                 if (best >= 0) {
                     shop.buy(best);
                     upgradesBought++;
-                    effect = "Gratis: " + Shop.NAMES[best] + "!";
+                    effect = Lang.t("Gratis: ", "Free: ") + Lang.pick(Shop.NAMES, Shop.NAMES_EN)[best] + "!";
                 } else {
                     counter += 100;
                     total += 100;
@@ -1119,7 +1158,7 @@ public class WackelView extends View {
                     p.grow = unit * 0.08f;
                 }
                 special(Awards.NOSE_CLIP);
-                kanadier("Bei Stinkbomben: Einfach mal NEIN sagen!");
+                kanadier(Lang.t("Bei Stinkbomben: Einfach mal NEIN sagen!", "Stink bombs: just say NO for once!"));
                 break;
             case Goodies.MAGNET:
                 nextStarAt = playTime;
@@ -1135,7 +1174,7 @@ public class WackelView extends View {
             goodiesCaught++;
             if (goodiesCaught >= 10) special(Awards.GOODIE_HUNTER);
         }
-        word(Goodies.ICONS[g] + " " + Goodies.NAMES[g], goodieX, goodieY - unit * 0.04f, color, 1f, 1);
+        word(Goodies.ICONS[g] + " " + Lang.pick(Goodies.NAMES, Goodies.NAMES_EN)[g], goodieX, goodieY - unit * 0.04f, color, 1f, 1);
         floatText(effect, goodieX, goodieY + unit * 0.05f, Color.WHITE, 1f, 0);
     }
 
@@ -1174,7 +1213,7 @@ public class WackelView extends View {
         awards.setLifetime(lifetimeBase + total);
         if (!awards.unlock(i)) return;
         awardsThisGame++;
-        queueBanner("AWARD " + (i + 1) + " · NEU!", Awards.NAMES[i], PARTY[i % PARTY.length]);
+        queueBanner("AWARD " + (i + 1) + Lang.t(" · NEU!", " · NEW!"), Lang.pick(Awards.NAMES, Awards.NAMES_EN)[i], PARTY[i % PARTY.length]);
         vibrate(new long[]{0, 80, 70, 80, 70, 250});
         if (awards.normalUnlockedCount() >= 50) special(Awards.COLLECTOR);
         int effect = i % EFFECT_COUNT;
@@ -1235,7 +1274,7 @@ public class WackelView extends View {
     /** Unlocks a special award; the big show only happens the first time. */
     private void special(int k) {
         if (!awards.unlock(Awards.COUNT + k)) return;
-        queueBanner("★ SPEZIAL-AWARD ★", Awards.SPECIALS[k][0], PURPLE);
+        queueBanner(Lang.t("★ SPEZIAL-AWARD ★", "★ SPECIAL AWARD ★"), Lang.pick(Awards.SPECIALS, Awards.SPECIALS_EN)[k][0], PURPLE);
         flashUntil = now + 0.3f;
         punch = 0.1f;
         confetti(120);
@@ -1494,7 +1533,7 @@ public class WackelView extends View {
         c.scale(1 + punch, 1 + punch, w / 2f, popoY);
         drawBackground(c, w, h);
         boolean disco = now < discoUntil || fever;
-        drawOutlined(c, "Wackel-Popo", w / 2f, h * 0.1f, unit * 0.085f, disco ? Color.WHITE : INK, 0);
+        drawOutlined(c, Lang.t("Wackel-Popo", "Wobble Booty"), w / 2f, h * 0.1f, unit * 0.085f, disco ? Color.WHITE : INK, 0);
 
         // Rocket: fly up and out, then drop back in from the top with a bounce.
         float offsetY = 0f;
@@ -1766,7 +1805,7 @@ public class WackelView extends View {
                 new int[]{0x00E53935, 0x00E53935, Color.argb(alpha, 229, 57, 53)}, new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP));
         c.drawRect(-w, -h, w * 2, h * 2, fill);
         fill.setShader(null);
-        drawOutlined(c, "SCHNELL KLATSCHEN!", w / 2f, h * 0.2f, unit * 0.075f * (0.95f + 0.1f * pulse), RED, 0);
+        drawOutlined(c, Lang.t("SCHNELL KLATSCHEN!", "SLAP FAST!"), w / 2f, h * 0.2f, unit * 0.075f * (0.95f + 0.1f * pulse), RED, 0);
     }
 
     private void drawDizzyStars(Canvas c) {
@@ -1979,44 +2018,46 @@ public class WackelView extends View {
         line.setStrokeWidth(s * 0.12f);
         c.drawPath(path, line);
         c.restore();
-        drawOutlined(c, "Fang mich!", starX, starY - s * 1.6f, unit * 0.035f, Color.WHITE, 0);
+        drawOutlined(c, Lang.t("Fang mich!", "Catch me!"), starX, starY - s * 1.6f, unit * 0.035f, Color.WHITE, 0);
     }
 
     private void drawHud(Canvas c, float w, float h) {
         boolean dark = now < discoUntil || fever;
         int ink = dark ? Color.WHITE : INK;
         if (state == READY) {
-            drawOutlined(c, "Tippen zum Starten!", w / 2f, h * 0.79f, unit * 0.075f, ink, 0);
-            smallText(c, "Klatsch im Takt: wenn der Ring den Kreis trifft!", w / 2f, h * 0.835f, ink);
-            smallText(c, "Mehrere Finger gleichzeitig = Griff-Bonus!", w / 2f, h * 0.87f, ink);
+            drawOutlined(c, Lang.t("Tippen zum Starten!", "Tap to start!"), w / 2f, h * 0.79f, unit * 0.075f, ink, 0);
+            smallText(c, Lang.t("Klatsch im Takt: wenn der Ring den Kreis trifft!", "Slap to the beat: when the ring hits the circle!"), w / 2f, h * 0.835f, ink);
+            smallText(c, Lang.t("Mehrere Finger gleichzeitig = Griff-Bonus!", "Several fingers at once = grip bonus!"), w / 2f, h * 0.87f, ink);
             String challenge = daily.doneToday()
-                    ? "✔ Tages-Challenge geschafft · 🔥 " + daily.streak() + " Tage in Folge"
-                    : "Tages-Challenge: " + Daily.TEXTS[daily.kind()] + " (+" + daily.reward() + " Taler)";
+                    ? Lang.t("✔ Tages-Challenge geschafft · 🔥 ", "✔ Daily challenge done · 🔥 ") + daily.streak() + Lang.t(" Tage in Folge", " days in a row")
+                    : Lang.t("Tages-Challenge: ", "Daily challenge: ") + Lang.pick(Daily.TEXTS, Daily.TEXTS_EN)[daily.kind()]
+                    + " (+" + daily.reward() + Lang.t(" Taler)", " Booty Coins)");
             smallText(c, challenge, w / 2f, h * 0.905f, daily.doneToday() ? GREEN : ink);
-            smallText(c, "Awards: " + awards.unlockedCount() + " von " + Awards.TOTAL + "   ·   Rekord: " + fmt(scores.best()), w / 2f, h * 0.945f, ink);
+            smallText(c, "Awards: " + awards.unlockedCount() + Lang.t(" von ", " of ") + Awards.TOTAL + Lang.t("   ·   Rekord: ", "   ·   Record: ") + fmt(scores.best()), w / 2f, h * 0.945f, ink);
             return;
         }
         // The counter itself.
         int color = counter < 0 ? RED : (counter >= cheapestPrice() ? GREEN : Color.WHITE);
         float bump = 1 + 0.08f * Math.max(0, energy - IDLE_ENERGY);
         drawOutlined(c, fmt(counter), w / 2f, h * 0.775f, unit * 0.12f * bump, color, 0);
-        String counterLabel = fever ? "🔥 FIEBER-MODUS: alles x1,25 🔥"
-                : (evo > 0 ? "✨ " + EVO_NAMES[evo - 1] + " ✨" + (evo < EVO_AT.length ? "  ·  nächste Stufe bei " + fmt(EVO_AT[evo]) : "")
-                : "Popo-Klatsch-Counter  ·  Verwandlung bei " + fmt(EVO_AT[0]));
+        String counterLabel = fever ? Lang.t("🔥 FIEBER-MODUS: alles x1,25 🔥", "🔥 FEVER MODE: everything x1.25 🔥")
+                : (evo > 0 ? "✨ " + Lang.pick(EVO_NAMES, EVO_NAMES_EN)[evo - 1] + " ✨"
+                + (evo < EVO_AT.length ? Lang.t("  ·  nächste Stufe bei ", "  ·  next stage at ") + fmt(EVO_AT[evo]) : "")
+                : Lang.t("Popo-Klatsch-Counter  ·  Verwandlung bei ", "Booty Slap Counter  ·  evolves at ") + fmt(EVO_AT[0]));
         smallText(c, counterLabel, w / 2f, h * 0.81f, ink);
-        String rates = "Combo x" + combo + "   ·   +" + fmt(shop.tapGain(false)) + " pro Klatsch   ·   −" + fmt1(drainRate()) + "/s";
+        String rates = "Combo x" + combo + "   ·   +" + fmt(shop.tapGain(false)) + Lang.t(" pro Klatsch   ·   −", " per slap   ·   −") + fmt1(drainRate()) + "/s";
         if (autoRate() > 0) rates += "   ·   Auto +" + fmt1(autoRate()) + "/s";
         smallText(c, rates, w / 2f, h * 0.843f, ink);
 
         // Progress to the next award.
         float bw = unit * 0.9f, bh = unit * 0.05f, bx = w / 2f - bw / 2f, by = h * 0.86f;
         float progress = 1f;
-        String label = "Alle 100 Punkte-Awards geholt!";
+        String label = Lang.t("Alle 100 Punkte-Awards geholt!", "All 100 score awards collected!");
         if (nextAward < Awards.COUNT) {
             long from = nextAward == 0 ? 0 : Awards.threshold(nextAward - 1);
             long to = Awards.threshold(nextAward);
             progress = (float) Math.max(0, Math.min(1, (lifetimeBase + total - from) / (double) (to - from)));
-            label = "Award " + (nextAward + 1) + " bei " + fmt(to) + ": " + Awards.NAMES[nextAward];
+            label = "Award " + (nextAward + 1) + Lang.t(" bei ", " at ") + fmt(to) + ": " + Lang.pick(Awards.NAMES, Awards.NAMES_EN)[nextAward];
         }
         fill.setColor(0x33000000);
         rect.set(bx, by, bx + bw, by + bh);
@@ -2040,7 +2081,7 @@ public class WackelView extends View {
             c.drawRoundRect(rect, fh / 2, fh / 2, fill);
         }
 
-        smallText(c, "Gesamt: " + fmt(total) + "   ·   Rekord: " + fmt(Math.max(scores.best(), total)), w / 2f, h * 0.955f, ink);
+        smallText(c, Lang.t("Gesamt: ", "Total: ") + fmt(total) + Lang.t("   ·   Rekord: ", "   ·   Record: ") + fmt(Math.max(scores.best(), total)), w / 2f, h * 0.955f, ink);
     }
 
     /** Ends the guided intro and starts the real round from scratch, warm-up included. */
@@ -2050,7 +2091,7 @@ public class WackelView extends View {
         playTime = 0;
         counter = START_POINTS;
         combo = 0;
-        queueBanner("Los geht's!", "Viel Spaß beim Klatschen", GOLD);
+        queueBanner(Lang.t("Los geht's!", "Let's go!"), Lang.t("Viel Spaß beim Klatschen", "Have fun slapping"), GOLD);
     }
 
     /** The intro: a hint and a hit counter while practising, then one short card per tap. */
@@ -2060,9 +2101,9 @@ public class WackelView extends View {
             fill.setColor(Color.argb(215, 255, 255, 255));
             RectF box = new RectF(unit * 0.08f, top, w - unit * 0.08f, top + unit * 0.2f);
             c.drawRoundRect(box, unit * 0.04f, unit * 0.04f, fill);
-            drawOutlined(c, "Tippe, wenn sich die Ringe treffen!", w / 2f, top + unit * 0.08f,
-                    fit("Tippe, wenn sich die Ringe treffen!", unit * 0.052f, box.width() * 0.92f), INK, 0);
-            drawOutlined(c, "Treffer: " + tutorialHits + " von 3", w / 2f, top + unit * 0.16f, unit * 0.05f, GOLD, 0);
+            String hint = Lang.t("Tippe, wenn sich die Ringe treffen!", "Tap when the rings meet!");
+            drawOutlined(c, hint, w / 2f, top + unit * 0.08f, fit(hint, unit * 0.052f, box.width() * 0.92f), INK, 0);
+            drawOutlined(c, Lang.t("Treffer: ", "Hits: ") + tutorialHits + Lang.t(" von 3", " of 3"), w / 2f, top + unit * 0.16f, unit * 0.05f, GOLD, 0);
             // A finger that taps on the beat over the popo.
             float until = nextBeat - now;
             float press = Math.max(0f, 1f - Math.abs(until) / 0.15f);
@@ -2074,7 +2115,7 @@ public class WackelView extends View {
             return;
         }
         c.drawColor(Color.argb(150, 0, 0, 0));
-        String[] card = TUTORIAL[tutorial - 1];
+        String[] card = Lang.pick(TUTORIAL, TUTORIAL_EN)[tutorial - 1];
         RectF box = new RectF(unit * 0.08f, h * 0.3f, w - unit * 0.08f, h * 0.3f + unit * 0.62f);
         fill.setColor(Color.WHITE);
         c.drawRoundRect(box, unit * 0.05f, unit * 0.05f, fill);
@@ -2085,7 +2126,7 @@ public class WackelView extends View {
         c.drawText(card[0], w / 2f, box.top + unit * 0.19f, text);
         drawOutlined(c, card[1], w / 2f, box.top + unit * 0.32f, fit(card[1], unit * 0.056f, box.width() * 0.9f), INK, 0);
         drawOutlined(c, card[2], w / 2f, box.top + unit * 0.41f, fit(card[2], unit * 0.05f, box.width() * 0.9f), INK, 0);
-        smallText(c, "Tippen für weiter  ·  " + tutorial + " von " + TUTORIAL.length, w / 2f, box.top + unit * 0.54f, INK);
+        smallText(c, Lang.t("Tippen für weiter  ·  ", "Tap to continue  ·  ") + tutorial + Lang.t(" von ", " of ") + TUTORIAL.length, w / 2f, box.top + unit * 0.54f, INK);
         if (tutorial == 3) {
             // Point at the shop corner.
             drawOutlined(c, "⬆", shopBtn.centerX(), shopBtn.bottom + unit * 0.12f, unit * 0.1f, GOLD, 0);
@@ -2126,6 +2167,13 @@ public class WackelView extends View {
         text.setTextSize(musicBtn.width() * 0.55f);
         text.setColor(INK);
         c.drawText(musicOn ? "🎸" : "🔇", musicBtn.centerX(), musicBtn.centerY() + musicBtn.width() * 0.2f, text);
+        drawButtonFrame(c, langBtn);
+        text.setColor(INK);
+        text.setTextSize(langBtn.width() * 0.32f);
+        text.setFakeBoldText(true);
+        c.drawText(Lang.en ? "EN" : "DE", langBtn.centerX(), langBtn.centerY() + langBtn.width() * 0.11f, text);
+        text.setFakeBoldText(false);
+        text.setTextSize(musicBtn.width() * 0.55f);
         if (state == READY) {
             drawButtonFrame(c, helpBtn);
             text.setColor(INK);
@@ -2214,13 +2262,13 @@ public class WackelView extends View {
     private void drawShop(Canvas c, float w, float h) {
         drawCard(c, card);
         float y = card.top + unit * 0.11f;
-        drawOutlined(c, "Popo-Shop", w / 2f, y, unit * 0.085f, GOLD, 0);
+        drawOutlined(c, Lang.t("Popo-Shop", "Booty Shop"), w / 2f, y, unit * 0.085f, GOLD, 0);
         y += unit * 0.075f;
         text.setStyle(Paint.Style.FILL);
         text.setTextAlign(Paint.Align.CENTER);
         text.setTextSize(unit * 0.045f);
         text.setColor(counter < 0 ? RED : INK);
-        c.drawText("Counter: " + fmt(counter) + "  (sinkt weiter!)", w / 2f, y, text);
+        c.drawText("Counter: " + fmt(counter) + Lang.t("  (sinkt weiter!)", "  (still dropping!)"), w / 2f, y, text);
 
         float rowTop = y + unit * 0.04f;
         float rowH = (card.bottom - unit * 0.2f - rowTop) / Shop.NAMES.length;
@@ -2245,7 +2293,7 @@ public class WackelView extends View {
 
             float pw = unit * 0.19f, ph = Math.min(r.height() * 0.5f, unit * 0.08f);
             float textLeft = r.left + unit * 0.14f, textWidth = r.right - pw - unit * 0.05f - textLeft;
-            String title = Shop.NAMES[i] + "  Lv " + shop.level(i);
+            String title = Lang.pick(Shop.NAMES, Shop.NAMES_EN)[i] + "  Lv " + shop.level(i);
             String desc = shop.describe(i);
             text.setTextAlign(Paint.Align.LEFT);
             text.setTextSize(fit(title, Math.min(r.height() * 0.3f, unit * 0.045f), textWidth));
@@ -2274,14 +2322,14 @@ public class WackelView extends View {
         c.drawRoundRect(closeBtn, bh / 2, bh / 2, line);
         text.setColor(Color.WHITE);
         text.setTextSize(bh * 0.42f);
-        c.drawText("Weiter klatschen!", closeBtn.centerX(), closeBtn.centerY() + bh * 0.15f, text);
+        c.drawText(Lang.t("Weiter klatschen!", "Keep slapping!"), closeBtn.centerX(), closeBtn.centerY() + bh * 0.15f, text);
         drawParticles(c, true);
     }
 
     private void drawTrophyScreen(Canvas c, float w, float h) {
         drawCard(c, card);
         float tabTop = card.top + unit * 0.04f, tabH = unit * 0.1f;
-        String[] names = {"Bestenliste", "Awards " + awards.unlockedCount() + "/" + Awards.TOTAL};
+        String[] names = {Lang.t("Bestenliste", "Leaderboard"), "Awards " + awards.unlockedCount() + "/" + Awards.TOTAL};
         float tw = (card.width() - unit * 0.12f) / 2;
         for (int i = 0; i < 2; i++) {
             RectF t = tabs[i];
@@ -2305,7 +2353,8 @@ public class WackelView extends View {
         text.setColor(INK);
         text.setAlpha(150);
         text.setTextSize(unit * 0.035f);
-        c.drawText(trophyTab == 1 ? "Medaille antippen für Details · sonst schließen" : "Tippen zum Schließen",
+        c.drawText(trophyTab == 1 ? Lang.t("Medaille antippen für Details · sonst schließen", "Tap a medal for details · elsewhere to close")
+                        : Lang.t("Tippen zum Schließen", "Tap to close"),
                 w / 2f, card.bottom - unit * 0.035f, text);
         text.setAlpha(255);
     }
@@ -2320,7 +2369,7 @@ public class WackelView extends View {
         text.setTextSize(size);
         if (entries.isEmpty()) {
             text.setTextAlign(Paint.Align.CENTER);
-            c.drawText("Noch keine Spiele. Los, klatschen!", w / 2f, y + row, text);
+            c.drawText(Lang.t("Noch keine Spiele. Los, klatschen!", "No games yet. Go on, slap!"), w / 2f, y + row, text);
         }
         int[] medals = {GOLD, 0xFFB0BEC5, 0xFFD7A26C};
         for (int i = 0; i < entries.size(); i++) {
@@ -2336,7 +2385,7 @@ public class WackelView extends View {
             text.setTextAlign(Paint.Align.CENTER);
             c.drawText(String.valueOf(i + 1), mx, ry, text);
             text.setTextAlign(Paint.Align.LEFT);
-            c.drawText(fmt(e.score) + " Klatscher", card.left + unit * 0.18f, ry, text);
+            c.drawText(fmt(e.score) + Lang.t(" Klatscher", " slaps"), card.left + unit * 0.18f, ry, text);
             text.setTextAlign(Paint.Align.RIGHT);
             text.setAlpha(150);
             c.drawText(dateFormat.format(new Date(e.time)), card.right - unit * 0.05f, ry, text);
@@ -2379,13 +2428,14 @@ public class WackelView extends View {
             }
         }
         if (show < 0) {
-            title = "Alle " + Awards.TOTAL + " Awards!";
-            detail = "Du bist das POPO-UNIVERSUM.";
+            title = Lang.t("Alle " + Awards.TOTAL + " Awards!", "All " + Awards.TOTAL + " awards!");
+            detail = Lang.t("Du bist das POPO-UNIVERSUM.", "You are the BOOTY UNIVERSE.");
         } else if (show < Awards.COUNT) {
-            title = (awards.isUnlocked(show) ? "✔ " : "") + "Award " + (show + 1) + ": " + Awards.NAMES[show];
-            detail = "bei " + fmt(Awards.threshold(show)) + " Klatschern über alle Spiele";
+            title = (awards.isUnlocked(show) ? "✔ " : "") + "Award " + (show + 1) + ": " + Lang.pick(Awards.NAMES, Awards.NAMES_EN)[show];
+            detail = Lang.t("bei " + fmt(Awards.threshold(show)) + " Klatschern über alle Spiele",
+                    "at " + fmt(Awards.threshold(show)) + " slaps across all games");
         } else {
-            String[] sp = Awards.SPECIALS[show - Awards.COUNT];
+            String[] sp = Lang.pick(Awards.SPECIALS, Awards.SPECIALS_EN)[show - Awards.COUNT];
             title = (awards.isUnlocked(show) ? "✔ " : "") + "★ " + sp[0];
             detail = sp[1];
         }
@@ -2408,35 +2458,38 @@ public class WackelView extends View {
         c.scale(pop, pop, w / 2f, h / 2f);
         drawCard(c, box);
         float y = box.top + unit * 0.13f;
-        drawOutlined(c, "POPO EINGESCHLAFEN!", w / 2f, y, fit("POPO EINGESCHLAFEN!", unit * 0.075f, box.width() * 0.85f), RED, 0);
+        String over = Lang.t("POPO EINGESCHLAFEN!", "BOOTY FELL ASLEEP!");
+        drawOutlined(c, over, w / 2f, y, fit(over, unit * 0.075f, box.width() * 0.85f), RED, 0);
         y += unit * 0.12f;
         text.setStyle(Paint.Style.FILL);
         text.setTextAlign(Paint.Align.CENTER);
         text.setColor(INK);
         text.setTextSize(unit * 0.06f);
-        c.drawText(fmt(total) + " Klatscher", w / 2f, y, text);
+        c.drawText(fmt(total) + Lang.t(" Klatscher", " slaps"), w / 2f, y, text);
         y += unit * 0.075f;
-        String info = "Awards: " + awardsThisGame + "   ·   Zeit: " + (int) playTime + " s   ·   Sterne: " + starsCaught;
+        String info = "Awards: " + awardsThisGame + Lang.t("   ·   Zeit: ", "   ·   Time: ") + (int) playTime
+                + Lang.t(" s   ·   Sterne: ", " s   ·   Stars: ") + starsCaught;
         text.setTextSize(fit(info, unit * 0.04f, box.width() * 0.9f));
         c.drawText(info, w / 2f, y, text);
         if (bestChord != null) {
             y += unit * 0.06f;
-            String chord = "Bester Griff: " + bestChord;
+            String chord = Lang.t("Bester Griff: ", "Best grip: ") + bestChord;
             text.setTextSize(fit(chord, unit * 0.04f, box.width() * 0.9f));
             c.drawText(chord, w / 2f, y, text);
         }
         y += unit * 0.085f;
         if (newRecord) {
-            drawOutlined(c, "NEUER REKORD!", w / 2f, y, unit * 0.07f, GOLD, 0);
+            drawOutlined(c, Lang.t("NEUER REKORD!", "NEW RECORD!"), w / 2f, y, unit * 0.07f, GOLD, 0);
         } else {
             text.setTextSize(unit * 0.045f);
             text.setColor(INK);
-            c.drawText(lastPlace > 0 ? "Platz " + lastPlace + " in der Bestenliste" : "Nicht in den Top " + HighscoreStore.MAX_ENTRIES, w / 2f, y, text);
+            c.drawText(lastPlace > 0 ? Lang.t("Platz " + lastPlace + " in der Bestenliste", "#" + lastPlace + " on the leaderboard")
+                : Lang.t("Nicht in den Top ", "Not in the top ") + HighscoreStore.MAX_ENTRIES, w / 2f, y, text);
         }
         y += unit * 0.065f;
         text.setTextSize(unit * 0.04f);
         text.setColor(INK);
-        c.drawText("+" + fmt(talerThisGame) + " Popo-Taler für die Garderobe", w / 2f, y, text);
+        c.drawText("+" + fmt(talerThisGame) + Lang.t(" Popo-Taler für die Garderobe", " Booty Coins for the wardrobe"), w / 2f, y, text);
         float bw = unit * 0.42f, bh = unit * 0.085f;
         shareBtn.set(w / 2f - bw / 2f, box.bottom - unit * 0.2f, w / 2f + bw / 2f, box.bottom - unit * 0.2f + bh);
         fill.setColor(GREEN);
@@ -2446,12 +2499,12 @@ public class WackelView extends View {
         c.drawRoundRect(shareBtn, bh / 2, bh / 2, line);
         text.setColor(Color.WHITE);
         text.setTextSize(unit * 0.045f);
-        c.drawText("📤 Rekord teilen", w / 2f, shareBtn.centerY() + unit * 0.016f, text);
+        c.drawText(Lang.t("📤 Rekord teilen", "📤 Share record"), w / 2f, shareBtn.centerY() + unit * 0.016f, text);
         if (t > 1.2f) {
             text.setTextSize(unit * 0.042f);
             text.setColor(INK);
             text.setAlpha(150 + (int) (100 * Math.sin(now * 4)));
-            c.drawText("Tippen für ein neues Spiel", w / 2f, box.bottom - unit * 0.05f, text);
+            c.drawText(Lang.t("Tippen für ein neues Spiel", "Tap for a new game"), w / 2f, box.bottom - unit * 0.05f, text);
             text.setAlpha(255);
         }
         c.restore();
@@ -2477,19 +2530,24 @@ public class WackelView extends View {
         text.setAlpha(255);
     }
 
+    /** Numbers in the style of the active language: 1.234 and 1,5 Mio. in German, 1,234 and 1.5M in English. */
+    private static Locale numbers() {
+        return Lang.en ? Locale.US : Locale.GERMANY;
+    }
+
     private String fmt(double v) {
-        if (Math.abs(v) >= 1e9) return String.format(Locale.GERMANY, "%.1f Mrd.", v / 1e9);
-        if (Math.abs(v) >= 1e7) return String.format(Locale.GERMANY, "%.1f Mio.", v / 1e6);
-        return intFormat.format((long) v);
+        if (Math.abs(v) >= 1e9) return String.format(numbers(), Lang.t("%.1f Mrd.", "%.1fB"), v / 1e9);
+        if (Math.abs(v) >= 1e7) return String.format(numbers(), Lang.t("%.1f Mio.", "%.1fM"), v / 1e6);
+        return (Lang.en ? intEn : intDe).format((long) v);
     }
 
     private static String fmt1(double v) {
-        return String.format(Locale.GERMANY, "%.1f", v);
+        return String.format(numbers(), "%.1f", v);
     }
 
     private static String fmtMult(double v) {
-        String s = String.format(Locale.GERMANY, "%.2f", v);
-        return s.replaceAll("0+$", "").replaceAll(",$", "");
+        String s = String.format(numbers(), "%.2f", v);
+        return s.replaceAll("0+$", "").replaceAll("[,.]$", "");
     }
 
     private void drawParticles(Canvas c) {
@@ -2939,7 +2997,7 @@ public class WackelView extends View {
     /** Boss health bar and timer under the title. */
     private void drawBossBar(Canvas c, float w, float h) {
         float bw = unit * 0.7f, bh = unit * 0.05f, bx = w / 2f - bw / 2f, by = h * 0.215f;
-        String label = "👿 " + bossName + "  ·  " + (int) Math.ceil(Math.max(0, bossEnd - playTime)) + " s";
+        String label = "👿 " + bossName() + "  ·  " + (int) Math.ceil(Math.max(0, bossEnd - playTime)) + " s";
         drawOutlined(c, label, w / 2f, by - unit * 0.015f, fit(label, unit * 0.045f, w * 0.9f), Color.WHITE, 0);
         fill.setColor(0x66000000);
         rect.set(bx, by, bx + bw, by + bh);
@@ -2956,14 +3014,14 @@ public class WackelView extends View {
     private void drawWardrobe(Canvas c, float w, float h) {
         drawCard(c, card);
         float y = card.top + unit * 0.09f;
-        String title = "👕 Garderobe";
+        String title = Lang.t("👕 Garderobe", "👕 Wardrobe");
         drawOutlined(c, title, w / 2f, y, unit * 0.065f, GOLD, 0);
         y += unit * 0.06f;
         text.setStyle(Paint.Style.FILL);
         text.setTextAlign(Paint.Align.CENTER);
         text.setColor(INK);
         text.setTextSize(unit * 0.04f);
-        c.drawText("🪙 " + fmt(wardrobe.taler()) + " Popo-Taler", w / 2f, y, text);
+        c.drawText("🪙 " + fmt(wardrobe.taler()) + Lang.t(" Popo-Taler", " Booty Coins"), w / 2f, y, text);
         y += unit * 0.03f;
         int cols = 5;
         float cell = card.width() * 0.9f / cols, left = w / 2f - cell * cols / 2f;
@@ -2972,7 +3030,7 @@ public class WackelView extends View {
             text.setTextAlign(Paint.Align.LEFT);
             text.setTextSize(unit * 0.04f);
             text.setColor(INK);
-            c.drawText(Wardrobe.CATEGORIES[cat], left, y, text);
+            c.drawText(Lang.pick(Wardrobe.CATEGORIES, Wardrobe.CATEGORIES_EN)[cat], left, y, text);
             y += unit * 0.015f;
             int worn = wardrobe.worn(cat);
             for (int i = 0; i < Wardrobe.ITEMS[cat].length; i++) {
@@ -2985,7 +3043,7 @@ public class WackelView extends View {
                 line.setColor(i == worn ? GREEN : INK);
                 line.setStrokeWidth(unit * (i == worn ? 0.008f : 0.004f));
                 c.drawRoundRect(r, cell * 0.15f, cell * 0.15f, line);
-                String[] item = Wardrobe.ITEMS[cat][i];
+                String[] item = Lang.pick(Wardrobe.ITEMS, Wardrobe.ITEMS_EN)[cat][i];
                 text.setTextAlign(Paint.Align.CENTER);
                 text.setColor(INK);
                 text.setAlpha(owned ? 255 : 140);
@@ -2994,7 +3052,7 @@ public class WackelView extends View {
                 text.setAlpha(255);
                 text.setTextSize(fit(item[1], cell * 0.15f, r.width() * 0.92f));
                 c.drawText(item[1], r.centerX(), r.top + cell * 0.66f, text);
-                String status = i == worn ? "an" : (owned ? "" : "🪙 " + item[2]);
+                String status = i == worn ? Lang.t("an", "worn") : (owned ? "" : "🪙 " + item[2]);
                 text.setTextSize(cell * 0.14f);
                 text.setColor(i == worn ? GREEN : INK);
                 c.drawText(status, r.centerX(), r.top + cell * 0.83f, text);
@@ -3004,7 +3062,7 @@ public class WackelView extends View {
         text.setColor(INK);
         text.setTextSize(unit * 0.033f);
         text.setAlpha(170);
-        c.drawText("Taler gibt's fürs Spielen, für Bosse und Tages-Challenges.", w / 2f, card.bottom - unit * 0.04f, text);
+        c.drawText(Lang.t("Taler gibt's fürs Spielen, für Bosse und Tages-Challenges.", "Coins come from playing, bosses and daily challenges."), w / 2f, card.bottom - unit * 0.04f, text);
         text.setAlpha(255);
     }
 

@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 public final class Wardrobe {
     public static final int HATS = 0, GLASSES = 1, SHORTS = 2;
     public static final String[] CATEGORIES = {"Hüte", "Brillen", "Hosen"};
+    public static final String[] CATEGORIES_EN = {"Hats", "Glasses", "Shorts"};
 
     /** Per category: icon, name, price in Taler. Index 0 is always "nothing" or "surprise". */
     public static final String[][][] ITEMS = {
@@ -19,6 +20,16 @@ public final class Wardrobe {
             {{"🎲", "Jedes Spiel neu", "0"}, {"🔵", "Blau", "15"}, {"🔴", "Rot", "15"}, {"🟢", "Grün", "20"},
                     {"🟣", "Lila", "25"}, {"🟠", "Orange", "25"}, {"🩵", "Türkis", "30"}, {"🩷", "Pink", "30"},
                     {"⚫", "Schwarz", "40"}},
+    };
+
+    /** English twin of ITEMS: same icons and prices, only the names translated. */
+    public static final String[][][] ITEMS_EN = {
+            {{"✖", "None", "0"}, {"🧢", "Cap", "30"}, {"🎉", "Party Hat", "60"}, {"🤠", "Cowboy Hat", "100"},
+                    {"🎩", "Top Hat", "150"}, {"⚔", "Viking Helmet", "250"}},
+            {{"✖", "None", "0"}, {"🕶", "Sunglasses", "40"}, {"🤓", "Nerd Glasses", "70"}, {"😍", "Heart Glasses", "120"}},
+            {{"🎲", "New every game", "0"}, {"🔵", "Blue", "15"}, {"🔴", "Red", "15"}, {"🟢", "Green", "20"},
+                    {"🟣", "Purple", "25"}, {"🟠", "Orange", "25"}, {"🩵", "Turquoise", "30"}, {"🩷", "Pink", "30"},
+                    {"⚫", "Black", "40"}},
     };
 
     private final SharedPreferences prefs;
@@ -68,6 +79,6 @@ public final class Wardrobe {
         if (missing.isEmpty()) return null;
         int[] got = missing.get(rnd.nextInt(missing.size()));
         prefs.edit().putBoolean("own_" + got[0] + "_" + got[1], true).apply();
-        return ITEMS[got[0]][got[1]][1];
+        return Lang.pick(ITEMS, ITEMS_EN)[got[0]][got[1]][1];
     }
 }

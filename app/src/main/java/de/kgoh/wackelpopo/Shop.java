@@ -7,6 +7,8 @@ public final class Shop {
     public static final String[] ICONS = {"👏", "🤖", "🧴", "⚡", "🔥", "👑"};
     public static final String[] NAMES = {"Doppelhand", "Auto-Klatscher", "Popo-Creme", "Kritischer Klatscher",
             "Combo-Turbo", "Goldener Popo"};
+    public static final String[] NAMES_EN = {"Double Hand", "Auto Slapper", "Booty Cream", "Critical Slap",
+            "Combo Turbo", "Golden Booty"};
     private static final double[] BASE = {25, 40, 60, 100, 150, 400};
     private static final double[] GROWTH = {2.0, 2.0, 2.2, 2.2, 2.2, 2.5};
     private static final int[] MAX = {99, 99, 10, 10, 10, 5};
@@ -37,17 +39,22 @@ public final class Shop {
     public String describe(int i) {
         switch (i) {
             case HAND:
-                return "+1 pro Klatsch (jetzt " + (1 + levels[HAND]) + ")";
+                return Lang.t("+1 pro Klatsch (jetzt " + (1 + levels[HAND]) + ")",
+                        "+1 per slap (now " + (1 + levels[HAND]) + ")");
             case AUTO:
-                return "+0,5 pro Sekunde von allein (jetzt " + fmt(0.5 * levels[AUTO]) + "/s)";
+                return Lang.t("+0,5 pro Sekunde von allein (jetzt " + fmt(0.5 * levels[AUTO]) + "/s)",
+                        "+0.5 per second, hands-free (now " + fmt(0.5 * levels[AUTO]) + "/s)");
             case CREAM:
-                return "Counter sinkt 12 % langsamer";
+                return Lang.t("Counter sinkt 12 % langsamer", "Counter drains 12% slower");
             case CRIT:
-                return "+4 % Chance auf x3 (jetzt " + 4 * levels[CRIT] + " %)";
+                return Lang.t("+4 % Chance auf x3 (jetzt " + 4 * levels[CRIT] + " %)",
+                        "+4% chance of x3 (now " + 4 * levels[CRIT] + "%)");
             case TURBO:
-                return "+10 % ab Combo 5 (jetzt +" + 10 * levels[TURBO] + " %)";
+                return Lang.t("+10 % ab Combo 5 (jetzt +" + 10 * levels[TURBO] + " %)",
+                        "+10% from combo 5 (now +" + 10 * levels[TURBO] + "%)");
             default:
-                return "Alles +15 % (jetzt x" + fmt(goldMultiplier()) + ")";
+                return Lang.t("Alles +15 % (jetzt x" + fmt(goldMultiplier()) + ")",
+                        "Everything +15% (now x" + fmt(goldMultiplier()) + ")");
         }
     }
 
@@ -72,6 +79,8 @@ public final class Shop {
     }
 
     private static String fmt(double v) {
-        return String.format(java.util.Locale.GERMANY, "%.2f", v).replaceAll("0+$", "").replaceAll(",$", "");
+        // Decimal comma in German, decimal point in English.
+        return String.format(Lang.en ? java.util.Locale.US : java.util.Locale.GERMANY, "%.2f", v)
+                .replaceAll("0+$", "").replaceAll("[,.]$", "");
     }
 }

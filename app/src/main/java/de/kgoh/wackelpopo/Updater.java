@@ -161,7 +161,7 @@ final class Updater {
                 return new String[]{tag.substring("build-".length()), name};
             }
         }
-        throw new IOException("Kein APK im neuesten Release");
+        throw new IOException(Lang.t("Kein APK im neuesten Release", "No APK in the latest release"));
     }
 
     private static String read(HttpURLConnection c) throws IOException {
@@ -180,7 +180,7 @@ final class Updater {
         c.setConnectTimeout(15000);
         c.setReadTimeout(30000);
         int code = c.getResponseCode();
-        if (code != 200) throw new IOException("GitHub antwortet " + code);
+        if (code != 200) throw new IOException(Lang.t("GitHub antwortet ", "GitHub answers ") + code);
         return c;
     }
 

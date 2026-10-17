@@ -13,9 +13,23 @@ public final class Words {
             "Der Wahnsinn geht weiter!", "Popo im Rausch!", "Heißer Hintern!", "Das ist Kunst!",
     };
 
+    public static final String[] PRAISE_EN = {
+            "Keep it up!", "Don't stop now!", "Wobble madness!", "Unstoppable!", "What a pace!", "Booty Power!",
+            "The booty is glowing!", "Slap storm!", "Mega!", "Unbelievable!", "Divine!", "Legendary!",
+            "Record material!", "Fire away!", "Full throttle!", "Turbo Booty!", "The cheeks are quaking!", "Hammer time!",
+            "Insane!", "Top class!", "World class!", "Booty party!", "Give it all!", "Don't you dare stop!",
+            "Magnificent!", "Fantastic!", "Sensational!", "Bombastic!", "Breathtaking!", "Slaptastic!",
+            "The madness goes on!", "Booty on a roll!", "Hot booty!", "That's art!",
+    };
+
     public static final String[] DANGER = {
             "Hilfe!", "Er schläft ein!", "Aufwachen!", "Schnell!", "Nicht aufgeben!", "Fast vorbei!",
             "Rette den Popo!", "Brrr, kalt hier!", "Bibber!", "Jetzt aber!", "Gas geben!", "Popo-Alarm!",
+    };
+
+    public static final String[] DANGER_EN = {
+            "Help!", "It's dozing off!", "Wake up!", "Quick!", "Don't give up!", "Almost over!",
+            "Save the booty!", "Brrr, it's cold!", "Shiver!", "Now or never!", "Step on it!", "Booty alert!",
     };
 
     public static final String[] BUY = {
@@ -23,7 +37,14 @@ public final class Words {
             "Schnäppchen!", "Aufgerüstet!",
     };
 
+    public static final String[] BUY_EN = {
+            "Bought!", "Upgrade!", "Ka-ching!", "Invested!", "Shopping!", "Nice!", "New power!", "Level up!",
+            "Bargain!", "Powered up!",
+    };
+
     public static final String[] RESCUE = {"Gerettet!", "Puh, knapp!", "Comeback!", "Zurück im Spiel!", "Der Popo lebt!"};
+    public static final String[] RESCUE_EN = {"Saved!", "Phew, close one!", "Comeback!", "Back in the game!",
+            "The booty lives!"};
 
     /** Number of distinct animation styles a word can use (see WackelView.drawWord). */
     public static final int STYLES = 7;

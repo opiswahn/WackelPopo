@@ -25,7 +25,8 @@ public class MainActivity extends Activity implements Updater.Listener {
     private TextView pill;
     private Updater updater;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private String pillText;
+    /** The pill's text in both languages, so a language switch shows up on the next refresh. */
+    private String pillText, pillTextEn;
     private int pillAction;
     private long lastCheck;
     private long committedAt;
@@ -74,6 +75,10 @@ public class MainActivity extends Activity implements Updater.Listener {
             public void run() {
                 // The pill only shows on the start screen, so it never covers the game or the game-over card.
                 pill.setVisibility(pillText != null && game.isOnStartScreen() ? View.VISIBLE : View.GONE);
+                if (pillText != null) {
+                    String text = Lang.t(pillText, pillTextEn);
+                    if (!text.contentEquals(pill.getText())) pill.setText(text);
+                }
                 handler.postDelayed(this, 400);
             }
         });
@@ -117,14 +122,17 @@ public class MainActivity extends Activity implements Updater.Listener {
             Intent confirm = (Intent) extras.get(Intent.EXTRA_INTENT);
             if (confirm != null) startActivity(confirm);
         } else if (status == PackageInstaller.STATUS_SUCCESS) {
-            show("Update installiert!", NONE);
+            show("Update installiert!", "Update installed!", NONE);
         } else {
             String msg = extras.getString(PackageInstaller.EXTRA_STATUS_MESSAGE);
             if (status == PackageInstaller.STATUS_FAILURE_CONFLICT || status == PackageInstaller.STATUS_FAILURE_INCOMPATIBLE) {
-                show("Passt nicht zur installierten App: alte App einmal deinstallieren. Tippen für Download", BROWSER);
+                show("Passt nicht zur installierten App: alte App einmal deinstallieren. Tippen für Download",
+                        "Doesn't fit the installed app: uninstall the old one once. Tap to download", BROWSER);
                 return;
             }
-            show("Update abgebrochen" + (msg != null ? " (" + msg + ")" : "") + ". Nochmal versuchen?", INSTALL);
+            String detail = msg != null ? " (" + msg + ")" : "";
+            show("Update abgebrochen" + detail + ". Nochmal versuchen?",
+                    "Update cancelled" + detail + ". Try again?", INSTALL);
         }
     }
 
@@ -132,40 +140,48 @@ public class MainActivity extends Activity implements Updater.Listener {
 
     @Override
     public void onUpdateAvailable(String versionName) {
-        show("⬇ Neue Version " + versionName + ": tippen zum Installieren", START_INSTALL);
+        show("⬇ Neue Version " + versionName + ": tippen zum Installieren",
+                "⬇ New version " + versionName + ": tap to install", START_INSTALL);
     }
 
     @Override
     public void onUpToDate() {
-        show(null, NONE);
+        show(null, null, NONE);
     }
 
     @Override
     public void onProgress(int percent) {
-        show("Lade Update … " + (percent >= 0 ? percent + " %" : ""), NONE);
+        show("Lade Update … " + (percent >= 0 ? percent + " %" : ""),
+                "Downloading update … " + (percent >= 0 ? percent + "%" : ""), NONE);
     }
 
     @Override
     public void onCommitted() {
-        show("Android fragt gleich nach der Installation …", NONE);
+        show("Android fragt gleich nach der Installation …",
+                "Android will ask about installing in a moment …", NONE);
         final long at = committedAt = System.currentTimeMillis();
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 // No answer from Android at all: offer the download in the browser instead.
-                if (committedAt == at) show("Keine Rückmeldung von Android. Tippen für Download im Browser", BROWSER);
+                if (committedAt == at) {
+                    show("Keine Rückmeldung von Android. Tippen für Download im Browser",
+                            "No answer from Android. Tap to download in the browser", BROWSER);
+                }
             }
         }, 15000);
     }
 
     @Override
     public void onFailed(String reason) {
-        show("Update fehlgeschlagen: " + reason + ". Tippen für neuen Versuch", CHECK);
+        show("Update fehlgeschlagen: " + reason + ". Tippen für neuen Versuch",
+                "Update failed: " + reason + ". Tap to try again", CHECK);
     }
 
     private void startInstall() {
         if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
-            show("Erlaube „Unbekannte Apps installieren“ und tippe dann nochmal", START_INSTALL);
+            show("Erlaube „Unbekannte Apps installieren“ und tippe dann nochmal",
+                    "Allow \u201cInstall unknown apps\u201d, then tap again", START_INSTALL);
             startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName())));
             return;
         }
@@ -193,10 +209,12 @@ public class MainActivity extends Activity implements Updater.Listener {
         }
     }
 
-    private void show(String text, int action) {
+    /** Shows the pill with a German and an English text (both null hides it). */
+    private void show(String text, String textEn, int action) {
         pillText = text;
+        pillTextEn = textEn;
         pillAction = action;
-        pill.setText(text);
+        pill.setText(text == null ? null : Lang.t(text, textEn));
         pill.setVisibility(text != null && game.isOnStartScreen() ? View.VISIBLE : View.GONE);
     }
 
