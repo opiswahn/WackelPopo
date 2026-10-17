@@ -12,7 +12,7 @@ des Autors. Schriften und Emoji-Darstellung kommen vom Android-System.
 - **Version:** `1.24` (lokaler `versionCode` 25; Quelle: [`version.txt`](version.txt)).
 - **Geräte:** Android 7.0 / API 24 oder neuer, Hochformat, Touchscreen.
 - **Sprachen:** Deutsch und Englisch, umschaltbar über DE/EN.
-- **Lizenz:** [MIT](LICENSES), Copyright (c) 2026 Jürgen Hölker.
+- **Lizenz:** [MIT](LICENSE), Copyright (c) 2026 Jürgen Hölker.
 - **Fremdkomponenten:** Umfang, Original-Lizenztexte und Verträglichkeitsprüfung in
   [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES). Fremdcode behält seine eigene Lizenz.
 
@@ -200,5 +200,5 @@ für ein separat geprüftes Release-/Play-App-Signing-Konzept.
 | `tools/release-key.py` | deterministische Release-Schlüsselableitung |
 | `tools/icon.py`, `tools/kanadier.py` | PNG-Generatoren mit Pillow |
 | `version.txt` | lokale Versionsnummer und Versionsname |
-| `LICENSES` | MIT-Lizenz für die eigenen Projektbestandteile |
+| `LICENSE` | MIT-Lizenz für die eigenen Projektbestandteile |
 | `THIRD-PARTY-LICENSES` | Fremdkomponenten, Lizenztexte und Verträglichkeit |

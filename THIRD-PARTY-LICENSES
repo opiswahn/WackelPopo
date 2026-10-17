@@ -2,7 +2,7 @@ THIRD-PARTY-LICENSES — Wackel-Popo
 =================================
 Prüfstand: 2026-10-17; Projektbasis: 3754a824a73ae5de75169525f5fab2a52bca2743.
 Autor der eigenen Projektbestandteile: Jürgen Hölker.
-Projektlizenz: MIT, siehe LICENSES. Diese Datei lizenziert Fremdkomponenten
+Projektlizenz: MIT, siehe LICENSE. Diese Datei lizenziert Fremdkomponenten
 NICHT um. Original-Copyrights und Lizenzbedingungen bleiben maßgeblich.
 
 1. Ergebnis und Prüfgrenze
@@ -47,7 +47,7 @@ gehören zum Projekt. Das Icon wird von tools/icon.py erzeugt. Die Bilder
 app/src/main/assets/kanadier_oben.png und kanadier_unten.png werden von
 tools/kanadier.py aus einer Fotovorlage verarbeitet. Jürgen Hölker hat am
 Prüftag bestätigt, dass es ein eigenes Foto ist und er die bearbeiteten Bilder
-unter MIT freigeben darf. Sie fallen damit unter LICENSES, nicht unter eine
+unter MIT freigeben darf. Sie fallen damit unter LICENSE, nicht unter eine
 unbekannte externe Bildlizenz. Es werden keine South-Park-Originalassets als
 Fremdkomponente behauptet oder lizenziert; die Stilbeschreibung im Generator
 ist keine Marken- oder Rechtefreigabe für fremde Figuren.
