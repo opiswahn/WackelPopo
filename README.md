@@ -1,6 +1,6 @@
 # Wackel-Popo
 
-Ein Comic-Rhythmusspiel für Android von **Jürgen Hölker**: Klatsch den Popo im Takt,
+Ein Comic-Rhythmusspiel für Android: Klatsch den Popo im Takt,
 halte den Zähler über Wasser und sammle Awards, Talente, Outfits und Verwandlungen.
 
 Die App ist in Java geschrieben, zeichnet mit Android Canvas und erzeugt Musik sowie
