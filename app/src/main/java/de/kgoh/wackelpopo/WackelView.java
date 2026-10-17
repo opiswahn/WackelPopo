@@ -258,6 +258,25 @@ public class WackelView extends View {
     private final Wardrobe wardrobe;
     private final Career career;
     private final Talents talents;
+    /**
+     * Stages: each has its own backdrop, plays the songs faster and in its own key, pays more and drains
+     * faster. Reaching the stage's goal in one game calls its end boss; beating it opens the next stage.
+     */
+    private static final String[] STAGE_NAMES = {"Hinterhof", "Strand", "Disco", "Weltall", "Vulkan"};
+    private static final String[] STAGE_NAMES_EN = {"Backyard", "Beach", "Disco", "Outer Space", "Volcano"};
+    private static final String[] STAGE_ICONS = {"🏡", "🏖️", "🪩", "🚀", "🌋"};
+    private static final long[] STAGE_GOAL = {3000, 8000, 20000, 50000, 120000};
+    private static final double[] STAGE_SCORE = {1, 1.25, 1.5, 2, 2.5};
+    private static final double[] STAGE_DRAIN = {1, 1.1, 1.2, 1.3, 1.45};
+    private static final int[][] STAGE_BG = {{0xFFFFF176, 0xFFFFB300}, {0xFFFFE082, 0xFF4FC3F7}, {0xFFE1BEE7, 0xFF6A1B9A},
+            {0xFF3949AB, 0xFF0B1033}, {0xFFFF8A65, 0xFF4E1308}};
+    private static final String[] END_BOSSES = {"Hinterhof-Hulk", "Sandbacken-Sultan", "Glitzer-Graf", "Astro-Popo",
+            "Lava-Lord"};
+    private static final String[] END_BOSSES_EN = {"Backyard Hulk", "Sand Cheek Sultan", "Glitter Count", "Astro Booty",
+            "Lava Lord"};
+    private int stage, stagesOpen;
+    private boolean endBoss, endBossPending, endBossCalled;
+    private final RectF stagePrev = new RectF(), stageNext = new RectF();
     private boolean secondChanceUsed;
     private final RectF talentBtn = new RectF();
     private final RectF[] talentRows = new RectF[Talents.NAMES.length];
@@ -340,6 +359,9 @@ public class WackelView extends View {
         }
         musicOn = settings.getBoolean("music", true);
         Lang.en = settings.getBoolean("english", false);
+        stagesOpen = Math.max(1, settings.getInt("stagesOpen", 1));
+        stage = Math.min(stagesOpen - 1, settings.getInt("stage", 0));
+        Music.setStage(stage);
         for (int i = 0; i < shopRows.length; i++) shopRows[i] = new RectF();
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeCap(Paint.Cap.ROUND);
@@ -351,8 +373,7 @@ public class WackelView extends View {
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        bg.setShader(new RadialGradient(w / 2f, h / 2f, Math.max(w, h) * 0.7f,
-                0xFFFFF176, 0xFFFFB300, Shader.TileMode.CLAMP));
+        stageBackground();
         unit = Math.min(w, h * 0.8f);
         popoX = w / 2f;
         popoY = h * 0.43f;
@@ -476,6 +497,13 @@ public class WackelView extends View {
             }
             return true;
         }
+        if (state == READY && firstFinger && (stagePrev.contains(x, y) || stageNext.contains(x, y))) {
+            if (stagesOpen > 1) {
+                selectStage((stage + (stageNext.contains(x, y) ? 1 : stagesOpen - 1)) % stagesOpen);
+                Synth.melody(new float[]{523, 659}, 0.06f);
+            }
+            return true;
+        }
         if (state == READY) {
             // The starting tap only starts; the first beat comes a moment later.
             newGame();
@@ -514,6 +542,7 @@ public class WackelView extends View {
         state = PLAYING;
         counter = START_POINTS + career.startBonus() + talents.startPoints();
         secondChanceUsed = false;
+        endBoss = endBossPending = endBossCalled = false;
         career.refresh();
         perfects = offbeatHits = feverCount = missionsThisGame = levelsThisGame = 0;
         xpThisGame = 0;
@@ -659,7 +688,7 @@ public class WackelView extends View {
         if (combo == talents.feverCombo()) startFever();
         double timing = lastJudge == 2 ? 3 : 1.5;
         double comboMult = Math.min(3, 1 + 0.1 * combo);
-        double gain = shop.tapGain(combo >= 5) * timing * comboMult * (fever ? FEVER_BONUS : 1) * (boosted(Goodies.CHOCO) ? 2 : 1);
+        double gain = shop.tapGain(combo >= 5) * timing * comboMult * (fever ? FEVER_BONUS : 1) * (boosted(Goodies.CHOCO) ? 2 : 1) * STAGE_SCORE[stage];
         boolean crit = rnd.nextDouble() < shop.critChance() + (boosted(Goodies.CLOVER) ? 0.25 : 0);
         if (crit) {
             gain *= CRIT_FACTOR;
@@ -1096,12 +1125,24 @@ public class WackelView extends View {
     }
 
     private void updateBoss() {
+        if (!endBossCalled && total >= STAGE_GOAL[stage]) {
+            // The stage's goal is reached: its end boss comes next.
+            endBossCalled = true;
+            endBossPending = true;
+            if (!bossActive) nextBossAt = Math.min(nextBossAt, playTime + 3f);
+            queueBanner(Lang.t("DER ENDBOSS NAHT!", "THE END BOSS APPROACHES!"), Lang.pick(END_BOSSES, END_BOSSES_EN)[stage], PURPLE);
+        }
         if (!bossActive && goodie < 0 && playTime >= nextBossAt) {
+            if (endBossPending) {
+                endBossPending = false;
+                endBoss = true;
+                megaBoss = true;
+            }
             bossActive = true;
             bossMaxHp = bossHp = (15 + 5 * bossesBeaten) * (megaBoss ? 2 : 1);
             bossEnd = playTime + BOSS_SECONDS;
             bossIndex = rnd.nextInt(BOSS_NAMES.length);
-            queueBanner(megaBoss ? "MEGA-BOSS!" : Lang.t("BOSS-POPO!", "BOSS BOOTY!"), bossName() + " · " + bossMaxHp
+            queueBanner(endBoss ? Lang.t("ENDBOSS!", "END BOSS!") : megaBoss ? "MEGA-BOSS!" : Lang.t("BOSS-POPO!", "BOSS BOOTY!"), bossName() + " · " + bossMaxHp
                     + Lang.t(" Treffer im Takt in 20 s!", " hits on the beat in 20 s!"), PURPLE);
             Synth.melody(new float[]{98, 0, 98, 0, 117, 98}, 0.1f);
             shakeUntil = now + 0.6f;
@@ -1110,6 +1151,12 @@ public class WackelView extends View {
         if (bossActive && playTime >= bossEnd) {
             bossActive = false;
             nextBossAt = playTime + 100f + rnd.nextFloat() * 40f;
+            if (endBoss) {
+                // The end boss comes back for another try.
+                endBoss = false;
+                endBossPending = true;
+                nextBossAt = playTime + 30f;
+            }
             megaBoss = false;
             word(Lang.t("Boss entkommen!", "Boss escaped!"), popoX, popoY - popoR * 1.5f, Color.WHITE, 1.2f, 4);
             Synth.melody(new float[]{392, 370, 349, 330}, 0.12f);
@@ -1118,6 +1165,7 @@ public class WackelView extends View {
 
     /** The boss name in the current language, looked up each time so a language switch shows at once. */
     private String bossName() {
+        if (endBoss) return Lang.pick(END_BOSSES, END_BOSSES_EN)[stage];
         return (megaBoss ? "MEGA-" : "") + Lang.pick(BOSS_NAMES, BOSS_NAMES_EN)[bossIndex];
     }
 
@@ -1178,6 +1226,16 @@ public class WackelView extends View {
         Synth.melody(new float[]{392, 523, 659, 784, 1047, 1319, 1568}, 0.09f);
         vibrate(new long[]{0, 80, 50, 80, 50, 300});
         special(Awards.BOSS_1);
+        if (endBoss) {
+            endBoss = false;
+            if (stage + 1 < STAGE_NAMES.length && stagesOpen <= stage + 1) {
+                stagesOpen = stage + 2;
+                settings.edit().putInt("stagesOpen", stagesOpen).apply();
+                queueBanner(Lang.t("NEUE BÜHNE FREI!", "NEW STAGE UNLOCKED!"), STAGE_ICONS[stage + 1] + " "
+                        + Lang.pick(STAGE_NAMES, STAGE_NAMES_EN)[stage + 1], GOLD);
+            }
+            gainXp(50);
+        }
         if (bossesBeaten >= 3) special(Awards.BOSS_3);
     }
 
@@ -1363,7 +1421,7 @@ public class WackelView extends View {
 
     private double drainRate() {
         if (boosted(Goodies.ICE)) return 0;
-        return BASE_DRAIN * Math.pow(DRAIN_GROWTH, playTime) * shop.drainFactor() * talents.drainFactor();
+        return BASE_DRAIN * Math.pow(DRAIN_GROWTH, playTime) * shop.drainFactor() * talents.drainFactor() * STAGE_DRAIN[stage];
     }
 
     private void gameOver() {
@@ -1948,6 +2006,7 @@ public class WackelView extends View {
         }
         if (now >= discoUntil) {
             c.drawRect(-w, -h, w * 2, h * 2, bg);
+            drawStageDecor(c, w, h);
             return;
         }
         float hue = (now * 120f) % 360f;
@@ -2226,8 +2285,7 @@ public class WackelView extends View {
         if (state == READY) {
             drawCareer(c, w, h, ink);
             drawOutlined(c, Lang.t("Tippen zum Starten!", "Tap to start!"), w / 2f, h * 0.79f, unit * 0.075f, ink, 0);
-            smallText(c, Lang.t("Klatsch im Takt: wenn der Ring den Kreis trifft!", "Slap to the beat: when the ring hits the circle!"), w / 2f, h * 0.835f, ink);
-            smallText(c, Lang.t("Mehrere Finger gleichzeitig = Griff-Bonus!", "Several fingers at once = grip bonus!"), w / 2f, h * 0.87f, ink);
+            drawStagePicker(c, w, h, ink);
             String challenge = daily.doneToday()
                     ? Lang.t("✔ Tages-Challenge geschafft · 🔥 ", "✔ Daily challenge done · 🔥 ") + daily.streak() + Lang.t(" Tage in Folge", " days in a row")
                     : Lang.t("Tages-Challenge: ", "Daily challenge: ") + Lang.pick(Daily.TEXTS, Daily.TEXTS_EN)[daily.kind()]
@@ -2282,6 +2340,81 @@ public class WackelView extends View {
         }
 
         smallText(c, Lang.t("Gesamt: ", "Total: ") + fmt(total) + Lang.t("   ·   Rekord: ", "   ·   Record: ") + fmt(Math.max(scores.best(), total)), w / 2f, h * 0.955f, ink);
+    }
+
+    private void selectStage(int s) {
+        stage = s;
+        settings.edit().putInt("stage", s).apply();
+        stageBackground();
+        Music.setStage(s);
+    }
+
+    private void stageBackground() {
+        int w = getWidth(), h = getHeight();
+        if (w == 0 || h == 0) return;
+        bg.setShader(new RadialGradient(w / 2f, h / 2f, Math.max(w, h) * 0.7f,
+                STAGE_BG[stage][0], STAGE_BG[stage][1], Shader.TileMode.CLAMP));
+    }
+
+    /** A little scenery per stage on top of its colours. */
+    private void drawStageDecor(Canvas c, float w, float h) {
+        switch (stage) {
+            case 1:
+                fill.setColor(0xFFFFF59D);
+                c.drawCircle(w * 0.82f, h * 0.2f, unit * 0.09f, fill);
+                fill.setColor(0x6629B6F6);
+                for (int i = 0; i < 3; i++) {
+                    float y = h * (0.9f + 0.03f * i) + (float) Math.sin(now * 1.5 + i) * unit * 0.01f;
+                    c.drawRect(0, y, w, y + unit * 0.02f, fill);
+                }
+                break;
+            case 2:
+                for (int i = 0; i < 12; i++) {
+                    fill.setColor(Color.HSVToColor(110, new float[]{(i * 30 + now * 60) % 360, 0.7f, 1f}));
+                    c.drawCircle(w * ((i * 0.37f) % 1f), h * ((i * 0.61f + 0.05f) % 1f), unit * 0.035f, fill);
+                }
+                break;
+            case 3:
+                fill.setColor(Color.WHITE);
+                for (int i = 0; i < 40; i++) {
+                    fill.setAlpha(80 + (int) (170 * Math.abs(Math.sin(now * 1.3 + i * 2.1))));
+                    c.drawCircle(w * ((i * 0.618f) % 1f), h * ((i * 0.377f) % 1f), unit * 0.006f, fill);
+                }
+                fill.setAlpha(255);
+                break;
+            case 4:
+                for (int i = 0; i < 18; i++) {
+                    float t = (now * 0.15f + i * 0.13f) % 1f;
+                    fill.setColor(i % 2 == 0 ? 0xFFFFAB40 : 0xFFFF5722);
+                    fill.setAlpha((int) (220 * (1 - t)));
+                    c.drawCircle(w * ((i * 0.53f) % 1f) + (float) Math.sin(now + i) * unit * 0.02f, h * (1 - t), unit * 0.008f, fill);
+                }
+                fill.setAlpha(255);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /** Start screen: the stage picker with the end-boss goal of the stage. */
+    private void drawStagePicker(Canvas c, float w, float h, int ink) {
+        float y = h * 0.845f;
+        String name = STAGE_ICONS[stage] + " " + Lang.pick(STAGE_NAMES, STAGE_NAMES_EN)[stage];
+        drawOutlined(c, name, w / 2f, y, fit(name, unit * 0.055f, w * 0.55f), Color.WHITE, 0);
+        float s = unit * 0.09f;
+        stagePrev.set(w * 0.08f, y - s, w * 0.08f + s * 1.4f, y + s * 0.4f);
+        stageNext.set(w * 0.92f - s * 1.4f, y - s, w * 0.92f, y + s * 0.4f);
+        if (stagesOpen > 1) {
+            drawOutlined(c, "◀", stagePrev.centerX(), y, unit * 0.06f, Color.WHITE, 0);
+            drawOutlined(c, "▶", stageNext.centerX(), y, unit * 0.06f, Color.WHITE, 0);
+        }
+        String goal = stage + 1 < stagesOpen || stage + 1 >= STAGE_NAMES.length
+                ? Lang.t("Punkte x" + fmtMult(STAGE_SCORE[stage]) + "  ·  Endboss ab " + fmt(STAGE_GOAL[stage]),
+                "Points x" + fmtMult(STAGE_SCORE[stage]) + "  ·  end boss from " + fmt(STAGE_GOAL[stage]))
+                : Lang.t("Endboss ab " + fmt(STAGE_GOAL[stage]) + " Klatschern öffnet " + STAGE_ICONS[stage + 1] + " "
+                + STAGE_NAMES[stage + 1], "End boss at " + fmt(STAGE_GOAL[stage]) + " slaps opens "
+                + STAGE_ICONS[stage + 1] + " " + STAGE_NAMES_EN[stage + 1]);
+        smallText(c, goal, w / 2f, y + unit * 0.05f, ink);
     }
 
     /** Start screen: level, title, experience bar and the three open missions. */

@@ -62,7 +62,7 @@ public class MainActivity extends Activity implements Updater.Listener {
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         // Between "Tippen zum Starten!" and the daily challenge, where the thumb reaches and no notch is.
-        lp.bottomMargin = (int) (getResources().getDisplayMetrics().heightPixels * 0.13f);
+        lp.bottomMargin = (int) (getResources().getDisplayMetrics().heightPixels * 0.1f);
         root.addView(pill, lp);
         setContentView(root);
         updater = new Updater(this, this);

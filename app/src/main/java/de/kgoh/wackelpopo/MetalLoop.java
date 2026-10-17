@@ -13,9 +13,19 @@ public final class MetalLoop {
     public static final int GAME = 0, FEVER = 1, MENU = 2;
     private static final double[] BPM = {152, 176, 104};
 
+    /** Each stage plays the songs a little faster and in its own key. */
+    private static final double[] STAGE_TEMPO = {1.0, 1.05, 1.1, 1.15, 1.2};
+    private static final int[] STAGE_KEY = {0, 3, 5, -2, 1};
+    /** The stage the songs are rendered for; Music re-renders when it changes. */
+    public static volatile int stage;
+
+    private static double bpm(int song) {
+        return BPM[song] * STAGE_TEMPO[stage];
+    }
+
     /** Seconds per half bar of a song: the game's beat ring closes on these, on the kick of one and three. */
     public static double halfBar(int song) {
-        return 2 * 60.0 / BPM[song];
+        return 2 * 60.0 / bpm(song);
     }
     private static final double E2 = 82.41;
     /** Power-chord root of each bar, in semitones above low E: E E C D | E E G A, twice. */
@@ -30,7 +40,8 @@ public final class MetalLoop {
 
     public static short[] render(int song) {
         boolean fever = song == FEVER, menu = song == MENU;
-        double step = 60.0 / BPM[song] / 4;
+        double step = 60.0 / bpm(song) / 4;
+        double key = Math.pow(2, STAGE_KEY[stage] / 12.0);
         int bars = ROOTS.length;
         int len = (int) Math.round(bars * 16 * step * RATE);
         float[] mix = new float[len];
@@ -40,14 +51,14 @@ public final class MetalLoop {
         for (int bar = 0; bar < bars; bar++) {
             boolean partB = bar >= 8 || fever;
             // The fever song sits a whole tone higher, which makes it sound more urgent.
-            double root = E2 * Math.pow(2, (ROOTS[bar] + (fever ? 2 : 0)) / 12.0);
+            double root = key * E2 * Math.pow(2, (ROOTS[bar] + (fever ? 2 : 0)) / 12.0);
             for (int s = 0; s < 16; s++) {
                 int at = (int) Math.round((bar * 16 + s) * step * RATE);
                 if (menu) {
                     // Clean, gentle arpeggio over the same chords, a soft hat and a kick on one.
                     int[] triad = TRIADS[bar % 8];
                     int semi = LEAD_PATTERN[s] == 3 ? triad[0] + 12 : triad[LEAD_PATTERN[s]];
-                    pluck(mix, at, 164.81 * Math.pow(2, semi / 12.0), step * 3);
+                    pluck(mix, at, key * 164.81 * Math.pow(2, semi / 12.0), step * 3);
                     if (s % 4 == 0) bass(mix, at, root / 2, step * 3.5);
                     if (s == 0) kick(mix, at);
                     if (s % 4 == 2) hat(mix, at, noise, 0.05);
@@ -68,7 +79,7 @@ public final class MetalLoop {
                     int[] triad = TRIADS[bar % 8];
                     int idx = LEAD_PATTERN[s];
                     int semi = idx == 3 ? triad[0] + 12 : triad[idx];
-                    square(lead, at, 329.63 * Math.pow(2, (semi + (fever ? 2 : 0)) / 12.0), step * 0.95);
+                    square(lead, at, key * 329.63 * Math.pow(2, (semi + (fever ? 2 : 0)) / 12.0), step * 0.95);
                 }
             }
             if (!menu && bar % (fever ? 4 : 8) == 0) crash(mix, (int) Math.round(bar * 16 * step * RATE), noise);

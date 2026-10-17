@@ -101,6 +101,10 @@ zum Durchtippen. Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm
   pro Stufe: Polster (+10 Startpunkte), Dicke Haut (Zähler sinkt 4 % langsamer), Rhythmusgefühl (Trefferfenster
   6 % breiter), Fieber-Glut (Fieber 2 Combo früher, bis ab Combo 6), Goodie-Glück (Goodies 8 % öfter), je 5 Stufen,
   und Zweite Chance (einmal pro Spiel bei −10 gerettet).
+- **Bühnen (ab 1.22, ◀ ▶ unten auf dem Startbildschirm):** Hinterhof, Strand, Disco, Weltall, Vulkan. Jede hat
+  eigenen Hintergrund und spielt die Songs schneller und in eigener Tonart. Wer in einem Spiel das Bühnenziel
+  erreicht (3.000 / 8.000 / 20.000 / 50.000 / 120.000 Klatscher), ruft den Endboss; wer ihn besiegt, schaltet die
+  nächste Bühne frei (+50 XP). Höhere Bühnen geben mehr Punkte (bis ×2,5), der Zähler sinkt aber schneller (bis ×1,45).
 - **Popo-Taler** gibt es am Spielende (1 pro 500 Klatscher), für Bosse und für die Tages-Challenge.
 - **Garderobe** (👕 links oben auf dem Startbildschirm): Hüte, Brillen und Hosenfarben für Taler.
 - **Tages-Challenge:** jeden Tag eine von 10 Aufgaben, steht auf dem Startbildschirm. Geschafft gibt es

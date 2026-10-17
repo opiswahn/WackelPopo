@@ -21,6 +21,8 @@ public final class Music {
     /** Frames handed to the track, and where the current and the previous song started in that count. */
     private static volatile long written, songStart, prevStart;
     private static volatile int playing = -1, prevSong = -1;
+    /** Bumped when the stage changes, so the writer fades out and loads the songs rendered for the new stage. */
+    private static volatile int content;
 
     private Music() {
     }
@@ -46,6 +48,7 @@ public final class Music {
                         track = t;
                     }
                     int current = wanted;
+                    int loaded = content;
                     short[] loop = song(current);
                     written = 0;
                     songStart = prevStart = 0;
@@ -54,10 +57,12 @@ public final class Music {
                     int pos = 0, chunk = 2048;
                     while (running && generation == mine) {
                         // Glide to the target volume; when the song should change, fade out first.
-                        float goal = wanted != current ? 0 : target;
+                        boolean change = wanted != current || loaded != content;
+                        float goal = change ? 0 : target;
                         volume += Math.max(-0.006f, Math.min(0.006f, goal - volume));
                         t.setVolume(volume);
-                        if (wanted != current && volume <= 0.01f) {
+                        if (change && volume <= 0.01f) {
+                            loaded = content;
                             prevSong = current;
                             prevStart = songStart;
                             current = wanted;
@@ -113,6 +118,16 @@ public final class Music {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** Switches the songs to another stage's tempo and key; the change fades in like a song change. */
+    public static void setStage(int stage) {
+        synchronized (songs) {
+            if (MetalLoop.stage == stage) return;
+            MetalLoop.stage = stage;
+            for (int i = 0; i < songs.length; i++) songs[i] = null;
+        }
+        content++;
     }
 
     /** Which song should play (MetalLoop.GAME, FEVER or MENU) and how loud: 0 = silent, 1 = full blast. */
