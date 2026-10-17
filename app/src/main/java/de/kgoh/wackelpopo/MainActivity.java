@@ -2,7 +2,10 @@ package de.kgoh.wackelpopo;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInstaller;
 import android.graphics.drawable.GradientDrawable;
@@ -29,6 +32,13 @@ public class MainActivity extends Activity implements Updater.Listener {
     private String pillText;
     private int pillAction;
     private long lastCheck;
+    private long committedAt;
+    private final BroadcastReceiver installReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            handleInstallResult(intent);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +70,9 @@ public class MainActivity extends Activity implements Updater.Listener {
         setContentView(root);
         updater = new Updater(this, this);
         handleInstallResult(getIntent());
+        IntentFilter filter = new IntentFilter(Updater.ACTION_INSTALLED);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(installReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(installReceiver, filter);
         handler.post(new Runnable() {
             @Override
             public void run() {
@@ -87,6 +100,12 @@ public class MainActivity extends Activity implements Updater.Listener {
     }
 
     @Override
+    protected void onDestroy() {
+        unregisterReceiver(installReceiver);
+        super.onDestroy();
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         handleInstallResult(intent);
@@ -97,6 +116,7 @@ public class MainActivity extends Activity implements Updater.Listener {
         Bundle extras = intent.getExtras();
         if (extras == null) return;
         int status = extras.getInt(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
+        committedAt = 0;
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             Intent confirm = (Intent) extras.get(Intent.EXTRA_INTENT);
             if (confirm != null) startActivity(confirm);
@@ -104,6 +124,10 @@ public class MainActivity extends Activity implements Updater.Listener {
             show("Update installiert!", NONE);
         } else {
             String msg = extras.getString(PackageInstaller.EXTRA_STATUS_MESSAGE);
+            if (status == PackageInstaller.STATUS_FAILURE_CONFLICT || status == PackageInstaller.STATUS_FAILURE_INCOMPATIBLE) {
+                show("Passt nicht zur installierten App: alte App einmal deinstallieren. Tippen für Download", BROWSER);
+                return;
+            }
             show("Update abgebrochen" + (msg != null ? " (" + msg + ")" : "") + ". Nochmal versuchen?", INSTALL);
         }
     }
@@ -128,6 +152,19 @@ public class MainActivity extends Activity implements Updater.Listener {
     @Override
     public void onProgress(int percent) {
         show("Lade Update … " + (percent >= 0 ? percent + " %" : ""), NONE);
+    }
+
+    @Override
+    public void onCommitted() {
+        show("Android fragt gleich nach der Installation …", NONE);
+        final long at = committedAt = System.currentTimeMillis();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // No answer from Android at all: offer the download in the browser instead.
+                if (committedAt == at) show("Keine Rückmeldung von Android. Tippen für Download im Browser", BROWSER);
+            }
+        }, 15000);
     }
 
     @Override
@@ -165,7 +202,7 @@ public class MainActivity extends Activity implements Updater.Listener {
                 .show();
     }
 
-    private static final int NONE = 0, INSTALL = 1, CHECK = 2, START_INSTALL = 3, ASK_TOKEN = 4;
+    private static final int NONE = 0, INSTALL = 1, CHECK = 2, START_INSTALL = 3, ASK_TOKEN = 4, BROWSER = 5;
 
     private void perform(int action) {
         switch (action) {
@@ -180,6 +217,9 @@ public class MainActivity extends Activity implements Updater.Listener {
                 break;
             case ASK_TOKEN:
                 askToken();
+                break;
+            case BROWSER:
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Updater.RELEASES_PAGE)));
                 break;
             default:
                 break;

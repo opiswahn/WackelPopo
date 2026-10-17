@@ -26,6 +26,7 @@ import org.json.JSONObject;
  */
 final class Updater {
     static final String ACTION_INSTALLED = "de.kgoh.wackelpopo.INSTALLED";
+    static final String RELEASES_PAGE = "https://github.com/opiswahn/WackelPopo/releases/latest";
     private static final String REPO = "https://api.github.com/repos/opiswahn/WackelPopo/";
     private static final String APK = "wackel-popo-debug.apk";
     private static final String RAW = "application/vnd.github.raw";
@@ -40,6 +41,8 @@ final class Updater {
         void onProgress(int percent);
 
         void onFailed(String reason);
+
+        void onCommitted();
     }
 
     private final Activity activity;
@@ -117,11 +120,14 @@ final class Updater {
                         }
                         session.fsync(out);
                     }
-                    Intent result = new Intent(activity, MainActivity.class).setAction(ACTION_INSTALLED);
+                    // The result comes back as a broadcast: an activity start from the installer is blocked
+                    // on newer Android versions, which left the player with a finished download and nothing else.
+                    Intent result = new Intent(ACTION_INSTALLED).setPackage(activity.getPackageName());
                     int flags = PendingIntent.FLAG_UPDATE_CURRENT
                             | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
-                    session.commit(PendingIntent.getActivity(activity, 0, result, flags).getIntentSender());
+                    session.commit(PendingIntent.getBroadcast(activity, 0, result, flags).getIntentSender());
                     session.close();
+                    tell(COMMITTED, null, 0);
                 } catch (NeedsToken e) {
                     if (session != null) session.abandon();
                     tell(NEEDS_TOKEN, null, 0);
@@ -135,7 +141,7 @@ final class Updater {
         }).start();
     }
 
-    private static final int AVAILABLE = 0, UP_TO_DATE = 1, NEEDS_TOKEN = 2, PROGRESS = 3, FAILED = 4;
+    private static final int AVAILABLE = 0, UP_TO_DATE = 1, NEEDS_TOKEN = 2, PROGRESS = 3, FAILED = 4, COMMITTED = 5;
 
     /** Hands a result to the listener on the UI thread. */
     private void tell(final int what, final String text, final int percent) {
@@ -154,6 +160,9 @@ final class Updater {
                         break;
                     case PROGRESS:
                         listener.onProgress(percent);
+                        break;
+                    case COMMITTED:
+                        listener.onCommitted();
                         break;
                     default:
                         listener.onFailed(text);
