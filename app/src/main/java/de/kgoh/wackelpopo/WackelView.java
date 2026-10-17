@@ -205,6 +205,9 @@ public class WackelView extends View {
     /** Stages that summon a Mega-Boss right after the transformation (Gold and Galaxie). */
     private static final boolean[] EVO_MEGA = {false, false, true, false, true, false};
     private int evo;
+    /** 0..1: how red the cheeks glow from lots of klatscher in a short time; cools down by itself. */
+    private float heat;
+    private float nextSteamWordAt;
     private float evoStart = -10f;
     private boolean megaBoss;
 
@@ -392,6 +395,7 @@ public class WackelView extends View {
         bossActive = false;
         bossesBeaten = 0;
         evo = 0;
+        heat = 0;
         evoStart = -10f;
         megaBoss = false;
         nextBossAt = 75f + rnd.nextFloat() * 20f;
@@ -445,6 +449,7 @@ public class WackelView extends View {
         counter += gain;
         total += gain;
         energy = Math.min(energy + 0.6f, 1.8f);
+        heat = Math.min(1f, heat + 0.045f);
 
         chordOpen = true;
         chordStart = now;
@@ -628,6 +633,21 @@ public class WackelView extends View {
         while (nextAward < Awards.COUNT && lifetimeBase + total >= Awards.threshold(nextAward)) award(nextAward++);
 
         updateFever(dt);
+        heat = Math.max(0f, heat - dt * 0.12f);
+        if (heat > 0.85f) {
+            // Glowing hot: little steam clouds rise off the cheeks.
+            if (rnd.nextFloat() < dt * 12) {
+                Particle p = spawn(popoX + (rnd.nextFloat() - 0.5f) * popoR * 2.2f, popoY - popoR * 0.6f, SHAPE_PUFF,
+                        0xCCFFFFFF, popoR * 0.08f, 1f);
+                p.vy = -popoR * 1.8f;
+                p.grow = popoR * 0.25f;
+            }
+            if (now >= nextSteamWordAt) {
+                nextSteamWordAt = now + 6f;
+                String[] hot = {"Aua, heiß!", "Feuerrot!", "Glühpopo!", "Tomaten-Alarm!", "Der brennt!"};
+                word(hot[rnd.nextInt(hot.length)], popoX, popoY - popoR * 1.5f, 0xFFFF1744, 1.2f, rnd.nextInt(Words.STYLES));
+            }
+        }
         updateStar(dt);
         updateGoodie(dt);
         while (evo < EVO_AT.length && total >= EVO_AT[evo]) evolve(evo++);
@@ -2322,8 +2342,9 @@ public class WackelView extends View {
         }
         if (bossActive) return blend(0xFFCE93D8, Color.WHITE, now - bossHitAt < 0.08f ? 0.6f : 0f);
         int base = evoSkin();
-        if (fever) return blend(base, SKIN_HOT, 0.35f + 0.15f * (float) Math.sin(now * 8));
-        return base;
+        if (fever) base = blend(base, SKIN_HOT, 0.35f + 0.15f * (float) Math.sin(now * 8));
+        // Lots of klatscher make it glow bright red, starting gently and getting really vivid.
+        return blend(base, 0xFFFF1744, heat * heat * 0.9f);
     }
 
     /** Skin of the current evolution stage, morphing in over the first second after a transformation. */
@@ -2431,8 +2452,9 @@ public class WackelView extends View {
         rect.set(rx + a * 0.13f, rightY - b * 0.62f, rx + a * 0.55f, rightY - b * 0.38f);
         c.drawOval(rect, fill);
         fill.setColor(BLUSH);
-        c.drawCircle(lx - a * 0.2f, leftY + b * 0.2f, r * 0.2f, fill);
-        c.drawCircle(rx + a * 0.2f, rightY + b * 0.2f, r * 0.2f, fill);
+        float blush = r * (0.2f + 0.25f * heat);
+        c.drawCircle(lx - a * 0.2f, leftY + b * 0.2f, blush, fill);
+        c.drawCircle(rx + a * 0.2f, rightY + b * 0.2f, blush, fill);
 
         drawGlasses(c, bossActive ? 1 : wardrobe.worn(Wardrobe.GLASSES), lx, rx, leftY, rightY, a, b, stroke);
         float hatBase = Math.min(leftY, rightY) - b * 0.72f;

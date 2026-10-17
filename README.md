@@ -109,6 +109,10 @@ Sternen, wieder ein Mega-Boss) und Lava (250.000, glühend pulsierend). Jede Ver
 Partikel-Explosion, Farbe blendet über, dazu eine pulsierende Aura. Mega-Bosse haben doppelte Lebenspunkte
 und geben doppelte Beute.
 
+**Feuerroter Popo (ab 1.7):** Jeder Klatscher heizt die Backen auf, ohne Tippen kühlen sie langsam ab. Bei
+schnellem Dauerklatschen werden sie immer röter bis knallrot, die Bäckchen wachsen, und ganz heiß steigt
+Dampf auf („Aua, heiß!“). Das funktioniert auf jeder Evolutionsstufe.
+
 **Garderobe (ab 1.4):** Der Knopf 👕 oben links (außerhalb des Spiels) öffnet die Garderobe. Mit Popo-Talern
 kauft man dauerhaft Hüte (Kappe, Partyhut, Cowboyhut, Zylinder, Wikingerhelm), Brillen (Sonnen-, Nerd-,
 Herzbrille) und feste Hosenfarben. Taler gibt es am Spielende (1 pro 500 Klatscher), für Bosse (10 + 5 pro
