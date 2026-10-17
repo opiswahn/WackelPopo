@@ -12,6 +12,11 @@ public final class MetalLoop {
     public static final int RATE = 22050;
     public static final int GAME = 0, FEVER = 1, MENU = 2;
     private static final double[] BPM = {152, 176, 104};
+
+    /** Seconds per half bar of a song: the game's beat ring closes on these, on the kick of one and three. */
+    public static double halfBar(int song) {
+        return 2 * 60.0 / BPM[song];
+    }
     private static final double E2 = 82.41;
     /** Power-chord root of each bar, in semitones above low E: E E C D | E E G A, twice. */
     private static final int[] ROOTS = {0, 0, 8, 10, 0, 0, 3, 5, 0, 0, 8, 10, 0, 0, 3, 5};

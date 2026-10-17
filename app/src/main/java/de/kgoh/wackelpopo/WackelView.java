@@ -772,7 +772,26 @@ public class WackelView extends View {
 
     /** Seconds between beats: calm at first, getting faster the longer you last. */
     private float beatInterval() {
-        return Math.max(0.45f, 1.0f - playTime * 0.002f);
+        return (float) MetalLoop.halfBar(heardSong >= 0 ? heardSong : musicSong());
+    }
+
+    /** Song the player hears right now, -1 without music. */
+    private int heardSong = -1;
+    private float songChangedAt = -100f;
+
+    /** Pulls the next beat onto the nearest kick of the music, so the ring and the song share one beat. */
+    private void syncBeatToMusic() {
+        double[] clock = Music.clock();
+        if (clock == null) {
+            heardSong = -1;
+            return;
+        }
+        if ((int) clock[1] != heardSong) songChangedAt = now;
+        heardSong = (int) clock[1];
+        double iv = MetalLoop.halfBar(heardSong);
+        // The kick that sounded last, in game time; the beat is the one of those closest to the planned beat.
+        double base = now - (clock[0] % iv);
+        nextBeat = (float) (base + Math.round((nextBeat - base) / iv) * iv);
     }
 
     /** Lets the Kanadier pop up with a line, at most every 12 seconds. */
@@ -784,8 +803,10 @@ public class WackelView extends View {
     }
 
     private void updateBeat() {
+        syncBeatToMusic();
         while (now > nextBeat + GOOD_S) {
-            if (!nextBeatHit && combo > 0) breakCombo();
+            // Right after the song changes the beat jumps onto the new tempo; a beat lost there is not the player's fault.
+            if (!nextBeatHit && combo > 0 && now - songChangedAt > 1.5f) breakCombo();
             nextBeat += beatInterval();
             nextBeatHit = false;
         }

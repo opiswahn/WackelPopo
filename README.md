@@ -8,6 +8,8 @@ verdoppelt sich also etwa alle 63 Sekunden). Fällt der Counter auf **-10**, ist
 zu und trifft ihn genau auf dem Schlag. Tippen in dem Moment ist **PERFEKT** (x3), knapp daneben **Gut** (x1,5).
 Jeder Treffer in Folge erhöht die Combo (+10 % pro Treffer, bis x3); ab Combo 16 startet der Fieber-Modus.
 Tippen neben dem Takt zeigt **Zu früh** oder **Zu spät**: kostet keine Punkte, bringt aber nichts und die Combo ist weg (ab 1.14). Ein zweiter Tipp auf denselben Schlag wird ignoriert.
+Ab 1.15 folgt der Ring der Musik: Er schließt sich auf jedem zweiten Schlag des Songs (auf der Bassdrum von
+Eins und Drei), im Spiel-Song alle 0,79 s, im Fieber- und Boss-Song alle 0,68 s. Ohne Musik läuft er im selben Tempo weiter.
 Einen Schlag ganz auslassen beendet die Combo ebenfalls. Pro Schlag zählt nur ein Treffer, also bringt wildes
 Hämmern nichts. Der Takt startet gemütlich (0,9 s) und wird mit der Zeit schneller (bis 0,45 s).
 Griffe mit mehreren Fingern zählen nur, wenn sie im Takt landen. Bosse verlieren nur durch Treffer im Takt

@@ -17,6 +17,9 @@ public final class Music {
     /** Volume the music glides towards; the game sets it to match what is happening. */
     private static volatile float target = 0.4f;
     private static volatile int wanted = MetalLoop.MENU;
+    /** Frames handed to the track, and where the current and the previous song started in that count. */
+    private static volatile long written, songStart, prevStart;
+    private static volatile int playing = -1, prevSong = -1;
 
     private Music() {
     }
@@ -43,6 +46,9 @@ public final class Music {
                     }
                     int current = wanted;
                     short[] loop = song(current);
+                    written = 0;
+                    songStart = prevStart = 0;
+                    playing = prevSong = current;
                     t.play();
                     int pos = 0, chunk = 2048;
                     while (running && generation == mine) {
@@ -51,15 +57,20 @@ public final class Music {
                         volume += Math.max(-0.006f, Math.min(0.006f, goal - volume));
                         t.setVolume(volume);
                         if (wanted != current && volume <= 0.01f) {
+                            prevSong = current;
+                            prevStart = songStart;
                             current = wanted;
                             loop = song(current);
                             pos = 0;
+                            songStart = written;
+                            playing = current;
                         }
                         int n = Math.min(chunk, loop.length - pos);
-                        int written = t.write(loop, pos, n, AudioTrack.WRITE_NON_BLOCKING);
-                        if (written < 0) break;
-                        if (written == 0) Thread.sleep(15);
-                        pos = (pos + written) % loop.length;
+                        int wrote = t.write(loop, pos, n, AudioTrack.WRITE_NON_BLOCKING);
+                        if (wrote < 0) break;
+                        if (wrote == 0) Thread.sleep(15);
+                        written += wrote;
+                        pos = (pos + wrote) % loop.length;
                     }
                 } catch (Exception ignored) {
                     // No music is fine, the popo wiggles on.
@@ -77,6 +88,21 @@ public final class Music {
         synchronized (songs) {
             if (songs[which] == null) songs[which] = MetalLoop.render(which);
             return songs[which];
+        }
+    }
+
+    /**
+     * What can be heard right now: {seconds into the song, song}, or null without music. The old song may
+     * still be in the buffer for a moment after a switch, so the answer follows the playback head, not the writer.
+     */
+    public static synchronized double[] clock() {
+        if (!running || track == null || playing < 0) return null;
+        try {
+            long head = track.getPlaybackHeadPosition() & 0xFFFFFFFFL;
+            if (head >= songStart) return new double[]{(head - songStart) / (double) MetalLoop.RATE, playing};
+            return new double[]{(head - prevStart) / (double) MetalLoop.RATE, prevSong};
+        } catch (Exception e) {
+            return null;
         }
     }
 
