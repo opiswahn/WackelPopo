@@ -4,15 +4,6 @@ import java.util.Random;
 
 /** All the comic words that pop up while playing. */
 public final class Words {
-    public static final String[] TAP = {
-            "KLATSCH!", "PATSCH!", "BOING!", "WOBBEL!", "SCHWABBEL!", "PLOPP!", "ZACK!", "BAMM!", "WUMMS!", "POFF!",
-            "KAWUMM!", "FLATSCH!", "SPLATSCH!", "ZONK!", "WUSCH!", "BÄMM!", "PENG!", "KRACH!", "SCHMATZ!", "BLUBB!",
-            "FLUTSCH!", "HUI!", "JUHU!", "HOPPLA!", "BOING-BOING!", "WABBEL!", "SCHLABBER!", "GLIBBER!", "DOING!", "PLONK!",
-            "KLONK!", "TATSCH!", "KNUFF!", "SCHUBS!", "RUMMS!", "BUMM!", "SCHWUPP!", "ZING!", "ZISCH!", "PUFF!",
-            "PIEKS!", "KLAPS!", "WACKEL!", "HOPS!", "FLUPP!", "WIPP-WIPP!", "GLUCKS!", "OHA!", "YEAH!", "WOW!",
-            "SCHNAPP!", "BRUMM!", "TOCK!", "PITSCH!", "KLIRR!", "SURR!", "HUSCH!", "WHAMM!", "BAZONG!", "KABLAMM!",
-    };
-
     public static final String[] PRAISE = {
             "Weiter so!", "Nicht nachlassen!", "Wackel-Wahnsinn!", "Unaufhaltsam!", "Was für ein Tempo!", "Popo-Power!",
             "Der Popo glüht!", "Klatsch-Gewitter!", "Mega!", "Unglaublich!", "Göttlich!", "Legendär!",

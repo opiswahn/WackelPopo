@@ -1,12 +1,10 @@
 package de.kgoh.wackelpopo;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.pm.PackageInstaller;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -15,11 +13,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -145,11 +141,6 @@ public class MainActivity extends Activity implements Updater.Listener {
     }
 
     @Override
-    public void onNeedsToken() {
-        show("🔑 Update braucht deinen GitHub-Zugang: tippen", ASK_TOKEN);
-    }
-
-    @Override
     public void onProgress(int percent) {
         show("Lade Update … " + (percent >= 0 ? percent + " %" : ""), NONE);
     }
@@ -181,28 +172,7 @@ public class MainActivity extends Activity implements Updater.Listener {
         updater.install();
     }
 
-    private void askToken() {
-        final EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        input.setHint("github_pat_…");
-        input.setText(updater.token());
-        new AlertDialog.Builder(this)
-                .setTitle("GitHub-Zugang")
-                .setMessage("Das Repo ist privat. Leg auf GitHub einen Token mit Lesezugriff auf WackelPopo an "
-                        + "(Settings → Developer settings → Fine-grained tokens, Contents: Read) und füg ihn hier ein.")
-                .setView(input)
-                .setPositiveButton("Speichern", new android.content.DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(android.content.DialogInterface d, int which) {
-                        updater.setToken(input.getText().toString().trim());
-                        updater.check();
-                    }
-                })
-                .setNegativeButton("Abbrechen", null)
-                .show();
-    }
-
-    private static final int NONE = 0, INSTALL = 1, CHECK = 2, START_INSTALL = 3, ASK_TOKEN = 4, BROWSER = 5;
+    private static final int NONE = 0, INSTALL = 1, CHECK = 2, START_INSTALL = 3, BROWSER = 4;
 
     private void perform(int action) {
         switch (action) {
@@ -214,9 +184,6 @@ public class MainActivity extends Activity implements Updater.Listener {
                 break;
             case START_INSTALL:
                 startInstall();
-                break;
-            case ASK_TOKEN:
-                askToken();
                 break;
             case BROWSER:
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Updater.RELEASES_PAGE)));
@@ -235,9 +202,5 @@ public class MainActivity extends Activity implements Updater.Listener {
 
     private int dp(float v) {
         return (int) (v * getResources().getDisplayMetrics().density + 0.5f);
-    }
-
-    static SharedPreferences prefs(Activity a) {
-        return a.getSharedPreferences("update", MODE_PRIVATE);
     }
 }

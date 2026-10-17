@@ -58,12 +58,11 @@ jobs:
           VERSION_CODE=$((100 + GITHUB_RUN_NUMBER)) VERSION_NAME="$name.$GITHUB_RUN_NUMBER" \
             ANDROID_JAR="$RUNNER_TEMP/tools/android.jar" DX_JAR="$RUNNER_TEMP/tools/dx.jar" KEYS_DIR="$RUNNER_TEMP/keys" \
             tools/build-ohne-sdk.sh
-          cp build-ohne-sdk/wackel-popo-debug.apk wackel-popo.apk
 
       - name: Release veröffentlichen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git log -1 --pretty=%B > notes.txt
-          gh release create "build-$VERSION_CODE" wackel-popo.apk \
+          gh release create "build-$VERSION_CODE" build-ohne-sdk/wackel-popo.apk \
             --title "Wackel-Popo $VERSION_NAME" --notes-file notes.txt --latest

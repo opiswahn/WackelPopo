@@ -45,7 +45,7 @@ public final class Shop {
             case CRIT:
                 return "+4 % Chance auf x3 (jetzt " + 4 * levels[CRIT] + " %)";
             case TURBO:
-                return "+10 % bei Schnellklatschen (jetzt +" + 10 * levels[TURBO] + " %)";
+                return "+10 % ab Combo 5 (jetzt +" + 10 * levels[TURBO] + " %)";
             default:
                 return "Alles +15 % (jetzt x" + fmt(goldMultiplier()) + ")";
         }

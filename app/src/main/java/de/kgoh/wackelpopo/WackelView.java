@@ -248,6 +248,16 @@ public class WackelView extends View {
     private final RectF trophyBtn = new RectF();
     private final RectF shopBtn = new RectF();
     private final RectF musicBtn = new RectF();
+    private final RectF helpBtn = new RectF();
+    /** Guided intro: -1 off, 0 practise three beats, 1..TUTORIAL_CARDS short cards while the game waits. */
+    private int tutorial = -1;
+    private int tutorialHits;
+    private static final String[][] TUTORIAL = {
+            {"📉", "Der Zähler sinkt von allein.", "Fällt er unter −10, ist Schluss."},
+            {"🔥", "Treffer hintereinander geben Combo.", "Ab Combo 16 kommt das Fieber!"},
+            {"🛒", "Im Shop gibt es Upgrades.", "Solange er offen ist, wartet das Spiel."},
+            {"🪂", "Fang die Goodies am Fallschirm.", "Aber Finger weg von der Stinkbombe!"},
+    };
     private final RectF card = new RectF();
     private final RectF closeBtn = new RectF();
     private final RectF[] shopRows = new RectF[Shop.NAMES.length];
@@ -301,6 +311,7 @@ public class WackelView extends View {
         shopBtn.set(m, top, m + s, top + s);
         float ms = s * 0.75f;
         musicBtn.set(w - m - ms, top + s + m * 0.5f, w - m, top + s + m * 0.5f + ms);
+        helpBtn.set(musicBtn.left, musicBtn.bottom + m * 0.5f, musicBtn.right, musicBtn.bottom + m * 0.5f + ms);
         card.set(unit * 0.05f, h * 0.1f, w - unit * 0.05f, h * 0.92f);
     }
 
@@ -313,6 +324,11 @@ public class WackelView extends View {
         int idx = event.getActionIndex();
         float x = event.getX(idx), y = event.getY(idx);
         boolean firstFinger = action == MotionEvent.ACTION_DOWN;
+
+        if (state == PLAYING && tutorial >= 1) {
+            if (firstFinger && ++tutorial > TUTORIAL.length) finishTutorial();
+            return true;
+        }
 
         if (overlay == SHOP) {
             for (int i = 0; i < shopRows.length; i++) {
@@ -359,6 +375,11 @@ public class WackelView extends View {
             settings.edit().putBoolean("music", musicOn).apply();
             if (musicOn) Music.start();
             else Music.stop();
+            return true;
+        }
+        if (firstFinger && state == READY && helpBtn.contains(x, y)) {
+            settings.edit().putBoolean("tutorialDone", false).apply();
+            newGame();
             return true;
         }
         if (firstFinger && trophyBtn.contains(x, y)) {
@@ -461,7 +482,9 @@ public class WackelView extends View {
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         if (hour < 4) special(Awards.NIGHT_OWL);
         if (hour >= 5 && hour < 7) special(Awards.EARLY_BIRD);
-        queueBanner("Klatsch im Takt!", "Tippen, wenn der äußere Ring den inneren trifft", Color.WHITE);
+        tutorial = settings.getBoolean("tutorialDone", false) ? -1 : 0;
+        tutorialHits = 0;
+        if (tutorial < 0) queueBanner("Klatsch im Takt!", "Tippen, wenn der äußere Ring den inneren trifft", Color.WHITE);
     }
 
     private void klatsch(float x, float y) {
@@ -513,6 +536,10 @@ public class WackelView extends View {
         }
         nextBeatHit = true;
         lastHitAt = now;
+        if (tutorial == 0 && ++tutorialHits >= 3) {
+            tutorial = 1;
+            Synth.melody(new float[]{523, 659, 784}, 0.07f);
+        }
         combo++;
         bestCombo = Math.max(bestCombo, combo);
         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -701,7 +728,7 @@ public class WackelView extends View {
         if (state != PLAYING) return;
         playTime += dt;
         double auto = autoRate();
-        counter += (auto - (playTime < WARMUP_S ? 0 : drainRate())) * dt;
+        counter += (auto - (tutorial >= 0 || playTime < WARMUP_S ? 0 : drainRate())) * dt;
         total += auto * dt;
         while (nextAward < Awards.COUNT && lifetimeBase + total >= Awards.threshold(nextAward)) award(nextAward++);
 
@@ -1420,7 +1447,7 @@ public class WackelView extends View {
         long nanos = System.nanoTime();
         float dt = Math.min(0.05f, (nanos - lastFrame) / 1e9f);
         // Shop or trophies open mid-game: the game clock stands still, so beats, bosses and drain wait.
-        if (state == PLAYING && overlay != NO_OVERLAY) {
+        if (state == PLAYING && (overlay != NO_OVERLAY || tutorial >= 1)) {
             pausedNanos += nanos - lastFrame;
             dt = 0;
         }
@@ -1519,12 +1546,17 @@ public class WackelView extends View {
         drawButtons(c);
         drawBanner(c, w, h);
         drawKanadier(c, w, h);
+        if (state == PLAYING && tutorial >= 0) drawTutorial(c, w, h);
         text.setStyle(Paint.Style.FILL);
         text.setTextAlign(Paint.Align.LEFT);
-        text.setTextSize(unit * 0.03f);
+        // Lifted above the navigation bar, small but readable.
+        android.view.WindowInsets insets = getRootWindowInsets();
+        @SuppressWarnings("deprecation")
+        float navBar = insets != null ? insets.getSystemWindowInsetBottom() : 0;
+        text.setTextSize(unit * 0.034f);
         text.setColor(disco ? Color.WHITE : INK);
-        text.setAlpha(140);
-        c.drawText(versionLabel, unit * 0.03f, h - unit * 0.025f, text);
+        text.setAlpha(190);
+        c.drawText(versionLabel, unit * 0.03f, h - navBar - unit * 0.03f, text);
         text.setAlpha(255);
         text.setTextAlign(Paint.Align.CENTER);
         c.restore();
@@ -2011,6 +2043,57 @@ public class WackelView extends View {
         smallText(c, "Gesamt: " + fmt(total) + "   ·   Rekord: " + fmt(Math.max(scores.best(), total)), w / 2f, h * 0.955f, ink);
     }
 
+    /** Ends the guided intro and starts the real round from scratch, warm-up included. */
+    private void finishTutorial() {
+        tutorial = -1;
+        settings.edit().putBoolean("tutorialDone", true).apply();
+        playTime = 0;
+        counter = START_POINTS;
+        combo = 0;
+        queueBanner("Los geht's!", "Viel Spaß beim Klatschen", GOLD);
+    }
+
+    /** The intro: a hint and a hit counter while practising, then one short card per tap. */
+    private void drawTutorial(Canvas c, float w, float h) {
+        float top = h * 0.17f;
+        if (tutorial == 0) {
+            fill.setColor(Color.argb(215, 255, 255, 255));
+            RectF box = new RectF(unit * 0.08f, top, w - unit * 0.08f, top + unit * 0.2f);
+            c.drawRoundRect(box, unit * 0.04f, unit * 0.04f, fill);
+            drawOutlined(c, "Tippe, wenn sich die Ringe treffen!", w / 2f, top + unit * 0.08f,
+                    fit("Tippe, wenn sich die Ringe treffen!", unit * 0.052f, box.width() * 0.92f), INK, 0);
+            drawOutlined(c, "Treffer: " + tutorialHits + " von 3", w / 2f, top + unit * 0.16f, unit * 0.05f, GOLD, 0);
+            // A finger that taps on the beat over the popo.
+            float until = nextBeat - now;
+            float press = Math.max(0f, 1f - Math.abs(until) / 0.15f);
+            text.setStyle(Paint.Style.FILL);
+            text.setTextAlign(Paint.Align.CENTER);
+            text.setTextSize(unit * 0.16f);
+            text.setColor(INK);
+            c.drawText("👆", popoX + popoR * 0.6f, popoY + popoR * 1.2f - press * popoR * 0.25f, text);
+            return;
+        }
+        c.drawColor(Color.argb(150, 0, 0, 0));
+        String[] card = TUTORIAL[tutorial - 1];
+        RectF box = new RectF(unit * 0.08f, h * 0.3f, w - unit * 0.08f, h * 0.3f + unit * 0.62f);
+        fill.setColor(Color.WHITE);
+        c.drawRoundRect(box, unit * 0.05f, unit * 0.05f, fill);
+        text.setStyle(Paint.Style.FILL);
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setTextSize(unit * 0.15f);
+        text.setColor(INK);
+        c.drawText(card[0], w / 2f, box.top + unit * 0.19f, text);
+        drawOutlined(c, card[1], w / 2f, box.top + unit * 0.32f, fit(card[1], unit * 0.056f, box.width() * 0.9f), INK, 0);
+        drawOutlined(c, card[2], w / 2f, box.top + unit * 0.41f, fit(card[2], unit * 0.05f, box.width() * 0.9f), INK, 0);
+        smallText(c, "Tippen für weiter  ·  " + tutorial + " von " + TUTORIAL.length, w / 2f, box.top + unit * 0.54f, INK);
+        if (tutorial == 3) {
+            // Point at the shop corner.
+            drawOutlined(c, "⬆", shopBtn.centerX(), shopBtn.bottom + unit * 0.12f, unit * 0.1f, GOLD, 0);
+        } else if (tutorial == 1) {
+            drawOutlined(c, "⬇", w / 2f, h * 0.72f, unit * 0.1f, GOLD, 0);
+        }
+    }
+
     private void smallText(Canvas c, String s, float x, float y, int color) {
         text.setStyle(Paint.Style.FILL);
         text.setTextAlign(Paint.Align.CENTER);
@@ -2043,6 +2126,11 @@ public class WackelView extends View {
         text.setTextSize(musicBtn.width() * 0.55f);
         text.setColor(INK);
         c.drawText(musicOn ? "🎸" : "🔇", musicBtn.centerX(), musicBtn.centerY() + musicBtn.width() * 0.2f, text);
+        if (state == READY) {
+            drawButtonFrame(c, helpBtn);
+            text.setColor(INK);
+            c.drawText("❓", helpBtn.centerX(), helpBtn.centerY() + helpBtn.width() * 0.2f, text);
+        }
         drawButtonFrame(c, shopBtn);
         if (state != PLAYING) {
             text.setStyle(Paint.Style.FILL);
