@@ -14,7 +14,7 @@ Griffe mit mehreren Fingern zählen nur, wenn sie im Takt landen. Bosse verliere
 Lebenspunkte (15, jeder weitere +5). Goodies kommen alle 30 bis 50 Sekunden, der Bonus-Stern alle 60 bis 90.
 Die Versionsnummer steht unten links.
 
-**Shop** (Einkaufswagen oben links, nur im Spiel): Counter-Punkte gegen Upgrades tauschen. Die
+**Shop** (Einkaufswagen oben links, nur im Spiel): Counter-Punkte gegen Upgrades tauschen. Solange der Shop (oder die Pokale) offen ist, pausiert das Spiel (ab 1.13). Die
 Punkte sind dann weg, und der Counter sinkt währenddessen weiter. Preise steigen pro Stufe exponentiell.
 
 | Upgrade | Wirkung | Startpreis | Preisfaktor |

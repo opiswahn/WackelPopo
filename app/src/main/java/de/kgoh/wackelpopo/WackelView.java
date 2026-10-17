@@ -120,6 +120,7 @@ public class WackelView extends View {
     // Game state.
     private int state = READY;
     private int overlay = NO_OVERLAY;
+    private long pausedNanos;
     private int trophyTab;
     private int selectedAward = -1;
     private double counter;
@@ -1397,8 +1398,13 @@ public class WackelView extends View {
     protected void onDraw(Canvas c) {
         long nanos = System.nanoTime();
         float dt = Math.min(0.05f, (nanos - lastFrame) / 1e9f);
+        // Shop or trophies open mid-game: the game clock stands still, so beats, bosses and drain wait.
+        if (state == PLAYING && overlay != NO_OVERLAY) {
+            pausedNanos += nanos - lastFrame;
+            dt = 0;
+        }
         lastFrame = nanos;
-        now = (nanos - start) / 1e9f;
+        now = (nanos - start - pausedNanos) / 1e9f;
         // Ease the extra wiggle back down to the idle sway.
         energy = IDLE_ENERGY + (energy - IDLE_ENERGY) * (float) Math.exp(-dt * 1.6f);
         punch *= (float) Math.exp(-dt * 6f);
