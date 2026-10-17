@@ -159,7 +159,7 @@ GitHub → Repo → Settings → Secrets and variables → Actions → „New re
 `SIGNING_PASSPHRASE`, Wert ein eigenes Passwort (mindestens 8 Zeichen, gut aufheben, nie ändern).
 Das Release-APK hat einen anderen Schlüssel als das Debug-APK: Beim Wechsel einmal deinstallieren.
 
-Beim Start fragt die App das neueste Release ab. Ist es neuer als die installierte Version, erscheint oben
+Beim Start fragt die App das neueste Release ab. Ist es neuer als die installierte Version, erscheint auf dem Startbildschirm unten
 „⬇ Neue Version …: tippen zum Installieren“. Ein Tipp lädt das APK und übergibt es dem Android-Installer;
 beim ersten Mal fragt Android, ob die App andere Apps installieren darf. Gibt es noch kein Release, nimmt die
 App `version.txt` und `wackel-popo-debug.apk` aus dem Repo. Neue Versionen müssen mit demselben Schlüssel

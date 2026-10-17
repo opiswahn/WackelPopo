@@ -20,7 +20,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
-/** Hosts the game and a small pill at the top that offers the newest version from GitHub. */
+/** Hosts the game and a small pill near the bottom of the start screen that offers the newest version from GitHub. */
 public class MainActivity extends Activity implements Updater.Listener {
     private WackelView game;
     private TextView pill;
@@ -53,8 +53,9 @@ public class MainActivity extends Activity implements Updater.Listener {
         FrameLayout root = new FrameLayout(this);
         root.addView(game);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-        lp.topMargin = dp(4);
+                FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        // Between "Tippen zum Starten!" and the daily challenge, where the thumb reaches and no notch is.
+        lp.bottomMargin = (int) (getResources().getDisplayMetrics().heightPixels * 0.13f);
         root.addView(pill, lp);
         setContentView(root);
         updater = new Updater(this, this);
@@ -62,8 +63,8 @@ public class MainActivity extends Activity implements Updater.Listener {
         handler.post(new Runnable() {
             @Override
             public void run() {
-                // The pill stays out of the way while a game is running.
-                pill.setVisibility(pillText != null && !game.isPlaying() ? View.VISIBLE : View.GONE);
+                // The pill only shows on the start screen, so it never covers the game or the game-over card.
+                pill.setVisibility(pillText != null && game.isOnStartScreen() ? View.VISIBLE : View.GONE);
                 handler.postDelayed(this, 400);
             }
         });
@@ -189,7 +190,7 @@ public class MainActivity extends Activity implements Updater.Listener {
         pillText = text;
         pillAction = action;
         pill.setText(text);
-        pill.setVisibility(text != null && !game.isPlaying() ? View.VISIBLE : View.GONE);
+        pill.setVisibility(text != null && game.isOnStartScreen() ? View.VISIBLE : View.GONE);
     }
 
     private int dp(float v) {

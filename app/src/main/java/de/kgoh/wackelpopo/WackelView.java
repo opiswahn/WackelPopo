@@ -405,6 +405,11 @@ public class WackelView extends View {
         return state == PLAYING;
     }
 
+    /** True on the start screen, the only place the update pill shows. */
+    public boolean isOnStartScreen() {
+        return state == READY;
+    }
+
     private void newGame() {
         state = PLAYING;
         counter = START_POINTS;
