@@ -197,6 +197,17 @@ public class WackelView extends View {
     private float bossEnd, nextBossAt, bossHitAt = -10f;
     private String bossName = "";
 
+    // Popo evolution: at these Klatscher in one game the popo transforms for the rest of the game.
+    private static final long[] EVO_AT = {1000, 5000, 15000, 40000, 100000, 250000};
+    private static final String[] EVO_NAMES = {"Bronze-Popo", "Silber-Popo", "Gold-Popo", "Regenbogen-Popo",
+            "Galaxie-Popo", "Lava-Popo"};
+    private static final int[] EVO_COLORS = {0xFFD7A26B, 0xFFCFD8DC, 0xFFFFD54F, 0xFFFF80AB, 0xFF5E35B1, 0xFFFF7043};
+    /** Stages that summon a Mega-Boss right after the transformation (Gold and Galaxie). */
+    private static final boolean[] EVO_MEGA = {false, false, true, false, true, false};
+    private int evo;
+    private float evoStart = -10f;
+    private boolean megaBoss;
+
     private final Wardrobe wardrobe;
     private final Daily daily;
     private boolean dailyDoneNow, feverReached;
@@ -380,6 +391,9 @@ public class WackelView extends View {
         goodiesCaught = 0;
         bossActive = false;
         bossesBeaten = 0;
+        evo = 0;
+        evoStart = -10f;
+        megaBoss = false;
         nextBossAt = 75f + rnd.nextFloat() * 20f;
         dailyDoneNow = false;
         feverReached = false;
@@ -446,6 +460,11 @@ public class WackelView extends View {
 
         startMove(pick(SMALL_MOVES), 0.45f, 0.6f + rnd.nextFloat() * 0.4f, 0);
 
+        if (evo >= 4) {
+            Particle p = spawn(x, y, SHAPE_STAR, evo == 4 ? PARTY[rnd.nextInt(PARTY.length)] : EVO_COLORS[evo - 1], popoR * 0.06f, 0.8f);
+            p.vy = -popoR * 1.5f;
+            p.vr = 300f;
+        }
         floatText((crit ? "KRIT! +" : "+") + fmt(gain), x, y, crit ? GOLD : Color.WHITE, crit ? 1.5f : 0.9f, crit ? 2 : 0);
         if (rnd.nextFloat() < 0.1f) {
             float a = rnd.nextFloat() * 6.283f;
@@ -611,6 +630,7 @@ public class WackelView extends View {
         updateFever(dt);
         updateStar(dt);
         updateGoodie(dt);
+        while (evo < EVO_AT.length && total >= EVO_AT[evo]) evolve(evo++);
         updateBoss();
         updateDaily();
 
@@ -715,10 +735,10 @@ public class WackelView extends View {
     private void updateBoss() {
         if (!bossActive && goodie < 0 && playTime >= nextBossAt) {
             bossActive = true;
-            bossMaxHp = bossHp = 60 + 25 * bossesBeaten;
+            bossMaxHp = bossHp = (60 + 25 * bossesBeaten) * (megaBoss ? 2 : 1);
             bossEnd = playTime + BOSS_SECONDS;
-            bossName = BOSS_NAMES[rnd.nextInt(BOSS_NAMES.length)];
-            queueBanner("BOSS-POPO!", bossName + " · " + bossMaxHp + " Klatscher in 20 s!", PURPLE);
+            bossName = (megaBoss ? "MEGA-" : "") + BOSS_NAMES[rnd.nextInt(BOSS_NAMES.length)];
+            queueBanner(megaBoss ? "MEGA-BOSS!" : "BOSS-POPO!", bossName + " · " + bossMaxHp + " Klatscher in 20 s!", PURPLE);
             Synth.melody(new float[]{98, 0, 98, 0, 117, 98}, 0.1f);
             shakeUntil = now + 0.6f;
             vibrate(new long[]{0, 200, 80, 200});
@@ -726,8 +746,36 @@ public class WackelView extends View {
         if (bossActive && playTime >= bossEnd) {
             bossActive = false;
             nextBossAt = playTime + 100f + rnd.nextFloat() * 40f;
+            megaBoss = false;
             word("Boss entkommen!", popoX, popoY - popoR * 1.5f, Color.WHITE, 1.2f, 4);
             Synth.melody(new float[]{392, 370, 349, 330}, 0.12f);
+        }
+    }
+
+    /** The popo transforms into the next stage: new colour, aura and a big show; some stages call a Mega-Boss. */
+    private void evolve(int stage) {
+        evoStart = now;
+        queueBanner("POPO-EVOLUTION!", "✨ " + EVO_NAMES[stage] + " ✨", EVO_COLORS[stage]);
+        flashUntil = now + 0.35f;
+        punch = 0.1f;
+        startMove(MOVE_SPIN, 1.2f, 1f, 4);
+        for (int i = 0; i < 70; i++) {
+            Particle p = spawn(popoX, popoY, i % 3 == 0 ? SHAPE_STAR : SHAPE_CIRCLE, i % 2 == 0 ? EVO_COLORS[stage] : Color.WHITE,
+                    popoR * (0.05f + 0.05f * rnd.nextFloat()), 1.4f);
+            double a = rnd.nextFloat() * Math.PI * 2;
+            float sp = popoR * (2.5f + 4f * rnd.nextFloat());
+            p.vx = (float) Math.cos(a) * sp;
+            p.vy = (float) Math.sin(a) * sp;
+            p.drag = 1.5f;
+            p.vr = 400f;
+        }
+        Synth.melody(new float[]{262, 330, 392, 523, 659, 784, 1047}, 0.08f);
+        vibrate(new long[]{0, 120, 60, 120, 60, 400});
+        if (stage == 2) special(Awards.EVO_GOLD);
+        if (stage == 5) special(Awards.EVO_LAVA);
+        if (EVO_MEGA[stage] && !bossActive) {
+            megaBoss = true;
+            nextBossAt = playTime + 3f;
         }
     }
 
@@ -739,10 +787,12 @@ public class WackelView extends View {
         bossActive = false;
         bossesBeaten++;
         nextBossAt = playTime + 100f + rnd.nextFloat() * 40f;
-        double bonus = 25 * drainRate() + 20 * shop.tapGain(false);
+        double bonus = (25 * drainRate() + 20 * shop.tapGain(false)) * (megaBoss ? 2 : 1);
         counter += bonus;
         total += bonus;
-        long taler = 10 + 5L * bossesBeaten;
+        long taler = (10 + 5L * bossesBeaten) * (megaBoss ? 2 : 1);
+        if (megaBoss) special(Awards.MEGA_BOSS);
+        megaBoss = false;
         wardrobe.addTaler(taler);
         talerThisGame += taler;
         String loot = rnd.nextFloat() < 0.35f ? wardrobe.gift(rnd) : null;
@@ -1313,6 +1363,7 @@ public class WackelView extends View {
         c.scale(big, big, popoX, popoY);
         applyMove(c);
         if (flame) drawFlame(c, popoX, popoY + popoR * 2.45f, popoR);
+        if (evo > 0) drawAura(c);
         drawPopo(c, popoX, popoY, popoR, phase);
         if (move == MOVE_DIZZY && now < moveStart + moveDur) drawDizzyStars(c);
         c.restore();
@@ -1560,6 +1611,26 @@ public class WackelView extends View {
         }
     }
 
+    /** A soft pulsing glow behind an evolved popo, plus a ring that bursts outwards right after it evolves. */
+    private void drawAura(Canvas c) {
+        int color = evo == 4 ? Color.HSVToColor(new float[]{(now * 90) % 360, 0.6f, 1f}) : EVO_COLORS[evo - 1];
+        float pulse = 1f + 0.06f * (float) Math.sin(now * 4);
+        for (int i = 3; i >= 1; i--) {
+            fill.setColor(color);
+            fill.setAlpha(28 + 10 * evo);
+            c.drawCircle(popoX, popoY, popoR * (1.6f + 0.35f * i) * pulse, fill);
+        }
+        fill.setAlpha(255);
+        float t = now - evoStart;
+        if (t >= 0 && t < 1.2f) {
+            line.setColor(color);
+            line.setAlpha((int) (255 * (1 - t / 1.2f)));
+            line.setStrokeWidth(popoR * 0.12f * (1 - t / 1.2f) + 1);
+            c.drawCircle(popoX, popoY, popoR * (1.5f + 4f * t), line);
+            line.setAlpha(255);
+        }
+    }
+
     /** The falling goodie, hanging from a little parachute. */
     private void drawGoodie(Canvas c) {
         float s = unit * 0.075f;
@@ -1644,7 +1715,10 @@ public class WackelView extends View {
         int color = counter < 0 ? RED : (counter >= cheapestPrice() ? GREEN : Color.WHITE);
         float bump = 1 + 0.08f * Math.max(0, energy - IDLE_ENERGY);
         drawOutlined(c, fmt(counter), w / 2f, h * 0.775f, unit * 0.12f * bump, color, 0);
-        smallText(c, fever ? "🔥 FIEBER-MODUS: alles x1,25 🔥" : "Popo-Klatsch-Counter", w / 2f, h * 0.81f, ink);
+        String counterLabel = fever ? "🔥 FIEBER-MODUS: alles x1,25 🔥"
+                : (evo > 0 ? "✨ " + EVO_NAMES[evo - 1] + " ✨" + (evo < EVO_AT.length ? "  ·  nächste Stufe bei " + fmt(EVO_AT[evo]) : "")
+                : "Popo-Klatsch-Counter  ·  Verwandlung bei " + fmt(EVO_AT[0]));
+        smallText(c, counterLabel, w / 2f, h * 0.81f, ink);
         String rates = "+" + fmt(shop.tapGain(false)) + " pro Klatsch   ·   −" + fmt1(drainRate()) + "/s";
         if (autoRate() > 0) rates += "   ·   Auto +" + fmt1(autoRate()) + "/s";
         smallText(c, rates, w / 2f, h * 0.843f, ink);
@@ -2247,8 +2321,26 @@ public class WackelView extends View {
             return blend(SKIN, SKIN_COLD, (float) Math.min(1, -counter / -GAME_OVER_AT) * 0.8f);
         }
         if (bossActive) return blend(0xFFCE93D8, Color.WHITE, now - bossHitAt < 0.08f ? 0.6f : 0f);
-        if (fever) return blend(SKIN, SKIN_HOT, 0.35f + 0.15f * (float) Math.sin(now * 8));
-        return SKIN;
+        int base = evoSkin();
+        if (fever) return blend(base, SKIN_HOT, 0.35f + 0.15f * (float) Math.sin(now * 8));
+        return base;
+    }
+
+    /** Skin of the current evolution stage, morphing in over the first second after a transformation. */
+    private int evoSkin() {
+        if (evo == 0) return SKIN;
+        int stage = evo - 1;
+        int to;
+        if (stage == 3) {
+            to = Color.HSVToColor(new float[]{(now * 90) % 360, 0.45f, 1f});
+        } else if (stage == 5) {
+            to = blend(0xFFFF5722, 0xFFFFAB40, 0.5f + 0.5f * (float) Math.sin(now * 5));
+        } else {
+            to = EVO_COLORS[stage];
+        }
+        float t = Math.min(1f, (now - evoStart) / 1.0f);
+        int from = stage == 0 ? SKIN : EVO_COLORS[stage - 1];
+        return blend(from, to, t);
     }
 
     private static int blend(int a, int b, float t) {
@@ -2318,6 +2410,19 @@ public class WackelView extends View {
         path.moveTo(cx, top);
         path.quadTo(cx + s * r * 0.08f, (top + bottom) / 2f, cx, bottom);
         c.drawPath(path, line);
+
+        if (evo >= 5) {
+            // Galaxie and Lava: twinkling specks across the cheeks.
+            for (int i = 0; i < 14; i++) {
+                float px = (i * 0.618f) % 1f, py = (i * 0.382f + 0.13f) % 1f;
+                float sx = (i % 2 == 0 ? lx : rx) + (px - 0.5f) * a * 1.3f;
+                float sy = (i % 2 == 0 ? leftY : rightY) + (py - 0.5f) * b * 1.3f;
+                fill.setColor(evo == 5 ? Color.WHITE : 0xFFFFF59D);
+                fill.setAlpha((int) (140 + 115 * Math.sin(now * 3 + i)));
+                c.drawCircle(sx, sy, r * (0.025f + 0.02f * (i % 3)), fill);
+            }
+            fill.setAlpha(255);
+        }
 
         // Shine and blush.
         fill.setColor(0xD9FFFFFF);

@@ -89,10 +89,10 @@ frierender Popo im Minus und ein schlafender Popo nach dem Spiel.
 **Wörter:** über 120 Comic-Wörter (60 Klatsch-Laute, 34 Lobsprüche, Gefahr-, Shop- und Rettungs-Sprüche)
 in 7 Animationsarten: Plopp, Wackeln, Heranzoomen, Bogenflug, Zittern, Regenbogen-Welle, Gummi-Dehnen.
 
-**36 Spezial-Awards** (lila Sterne im Award-Raster, antippen zeigt die Bedingung): z. B. Oktopus (4+4 Finger),
+**39 Spezial-Awards** (lila Sterne im Award-Raster, antippen zeigt die Bedingung): z. B. Oktopus (4+4 Finger),
 Zehn-Finger-Gott, Rhythmus-Meister, Fieberwahn, Tippmaschine (12 pro Sekunde), Eiserner Popo (10 Minuten),
 Haarscharf (unter -9 und gerettet), Comeback-Kid, Geizhals, Dagobert, Sternenfänger, Nachteule, Popo-Veteran.
-Dazu kommen Goodie-Jäger, Bescherung, Nasenklammer und Ausweichkünstler. Dazu Boss-Bezwinger und Boss-Jäger. Insgesamt 136 Awards. Liste in `Awards.java`.
+Dazu kommen Goodie-Jäger, Bescherung, Nasenklammer und Ausweichkünstler. Dazu Boss-Bezwinger, Boss-Jäger, Goldener Hintern, Vulkan-Po und Mega-Bezwinger. Insgesamt 139 Awards. Liste in `Awards.java`.
 
 **Bestenliste:** Top 10 Spiele nach Gesamt-Klatschern, mit Datum.
 
@@ -101,6 +101,13 @@ Dazu kommen Goodie-Jäger, Bescherung, Nasenklammer und Ausweichkünstler. Dazu 
 der Boss hat 60 Lebenspunkte, jeder weitere im selben Spiel 25 mehr, und man hat 20 Sekunden. Sieg: dicker
 Punkte-Bonus, Popo-Taler, Krone und mit 35 % Chance ein Garderoben-Teil als Beute. Während des Bosses läuft
 der schnelle Fieber-Song in voller Lautstärke.
+
+**Popo-Evolution (ab 1.6):** Bei bestimmten Klatschern in einem Spiel verwandelt sich der Popo bis zum
+Spielende: Bronze (1.000), Silber (5.000), Gold (15.000, ruft sofort einen Mega-Boss), Regenbogen (40.000,
+Farbe läuft durch alle Töne, Sternchen-Spur beim Tippen), Galaxie (100.000, dunkelviolett mit funkelnden
+Sternen, wieder ein Mega-Boss) und Lava (250.000, glühend pulsierend). Jede Verwandlung: Drehung, Blitz,
+Partikel-Explosion, Farbe blendet über, dazu eine pulsierende Aura. Mega-Bosse haben doppelte Lebenspunkte
+und geben doppelte Beute.
 
 **Garderobe (ab 1.4):** Der Knopf 👕 oben links (außerhalb des Spiels) öffnet die Garderobe. Mit Popo-Talern
 kauft man dauerhaft Hüte (Kappe, Partyhut, Cowboyhut, Zylinder, Wikingerhelm), Brillen (Sonnen-, Nerd-,

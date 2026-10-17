@@ -81,6 +81,9 @@ public final class Awards {
             {"Ausweichkünstler", "Lass 3 Stinkbomben in einem Spiel fallen"},
             {"Boss-Bezwinger", "Besiege einen Boss-Popo"},
             {"Boss-Jäger", "Besiege 3 Boss-Popos in einem Spiel"},
+            {"Goldener Hintern", "Verwandle den Popo in den Gold-Popo"},
+            {"Vulkan-Po", "Verwandle den Popo in den Lava-Popo"},
+            {"Mega-Bezwinger", "Besiege einen Mega-Boss"},
     };
 
     public static final int TWO_FINGERS = 0, SYMMETRY = 1, PISA = 2, WITCH = 3, OCTOPUS = 4, TEN_FINGERS = 5,
@@ -89,7 +92,7 @@ public final class Awards {
             MISER = 18, SCROOGE = 19, STAR = 20, STARS_5 = 21, LUCKY = 22, MAXED = 23, GOLDEN = 24,
             NIGHT_OWL = 25, EARLY_BIRD = 26, REGULAR = 27, VETERAN = 28, COLLECTOR = 29,
             GOODIE_HUNTER = 30, PRESENT = 31, NOSE_CLIP = 32, DODGER = 33,
-            BOSS_1 = 34, BOSS_3 = 35;
+            BOSS_1 = 34, BOSS_3 = 35, EVO_GOLD = 36, EVO_LAVA = 37, MEGA_BOSS = 38;
 
     public static final int SPECIAL_COUNT = SPECIALS.length;
     public static final int TOTAL = COUNT + SPECIAL_COUNT;
