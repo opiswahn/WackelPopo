@@ -17,8 +17,22 @@ zum Durchtippen. Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm
   sich etwa jede Minute). Fällt er auf **−10**, ist das Spiel vorbei. Die ersten 8 Sekunden sind Aufwärmen
   ohne Abzug.
 - **Klatschen im Takt:** Ein Ring schrumpft auf den Kreis um den Popo zu und trifft ihn genau auf dem Schlag.
-  Der Ring folgt der Musik: Er schließt sich auf jedem zweiten Schlag (Bassdrum auf Eins und Drei), im
-  Spiel-Song alle 0,79 s, im Fieber- und Boss-Song alle 0,68 s; ohne Musik im selben Tempo.
+  Die Schläge liegen immer auf der Musik (Achtelnoten des Songs, abgeglichen mit dem, was gerade aus dem
+  Lautsprecher kommt), aber der Rhythmus wechselt alle zwei Takte. Ein neuer Rhythmus wird kurz angesagt:
+
+  | Rhythmus | Schläge pro Takt | frei ab |
+  |---|---|---|
+  | Im Takt | auf Eins und Drei | Start |
+  | Ganz langsam | nur auf der Eins | Start |
+  | Doppeltempo! | alle vier Viertel | 25 s |
+  | Nachschlag! | Eins, Drei, Vier | 40 s |
+  | Synkope! | Eins, zwischen Zwei und Drei, Vier | 60 s |
+  | Galopp! | Eins, Zwei, gleich danach, Vier | 90 s |
+  | Doppelklatsch! | je zwei schnelle Schläge auf Eins und Drei | 120 s |
+
+  Der Ring schließt sich genau in der Zeit seit dem letzten Schlag: schneller Ring, schneller Schlag. Auf der
+  Eins ist er groß und verzeiht mehr, zwischen den Vierteln ist er klein und knapp. Im Fieber- und Boss-Song
+  (176 statt 152 BPM) wird alles schneller; ohne Musik läuft der Takt im selben Tempo weiter.
   - Genau getroffen ist **PERFEKT** (x3), knapp daneben **Gut** (x1,5).
   - Neben dem Takt zeigt **Zu früh** oder **Zu spät**: kostet keine Punkte, bringt aber nichts und beendet die Combo.
   - Pro Schlag zählt ein Treffer; ein zweiter Tipp auf denselben Schlag wird ignoriert. Wildes Hämmern lohnt

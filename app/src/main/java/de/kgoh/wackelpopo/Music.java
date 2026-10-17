@@ -11,6 +11,7 @@ import android.media.AudioTrack;
 public final class Music {
     private static final short[][] songs = new short[3][];
     private static AudioTrack track;
+    private static final android.media.AudioTimestamp stamp = new android.media.AudioTimestamp();
     private static volatile boolean running;
     /** Bumped on every start, so a thread left over from an earlier start quits. */
     private static volatile int generation;
@@ -98,7 +99,15 @@ public final class Music {
     public static synchronized double[] clock() {
         if (!running || track == null || playing < 0) return null;
         try {
-            long head = track.getPlaybackHeadPosition() & 0xFFFFFFFFL;
+            // The timestamp says which frame leaves the speaker at which moment; the playback head alone runs
+            // ahead of what is heard by the output latency, which made the ring feel early.
+            long head;
+            if (track.getTimestamp(stamp)) {
+                head = stamp.framePosition + (System.nanoTime() - stamp.nanoTime) * MetalLoop.RATE / 1000000000L;
+            } else {
+                head = (track.getPlaybackHeadPosition() & 0xFFFFFFFFL) - MetalLoop.RATE / 10;
+            }
+            if (head < 0) return null;
             if (head >= songStart) return new double[]{(head - songStart) / (double) MetalLoop.RATE, playing};
             return new double[]{(head - prevStart) / (double) MetalLoop.RATE, prevSong};
         } catch (Exception e) {

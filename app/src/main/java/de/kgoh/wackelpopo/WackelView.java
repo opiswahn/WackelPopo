@@ -57,7 +57,19 @@ public class WackelView extends View {
     private static final double FEVER_BONUS = 1.25;
     private static final double CRIT_FACTOR = 3;
     /** Rhythm: a tap this close to the beat is PERFEKT, a bit further GUT, anything else DANEBEN. */
-    private static final float PERFECT_S = 0.1f, GOOD_S = 0.25f;
+    /** Timing windows for small (offbeat), normal (quarter) and big (downbeat) beats: bigger ring, more forgiving. */
+    private static final float[] PERFECT_S = {0.07f, 0.09f, 0.11f}, GOOD_S = {0.14f, 0.2f, 0.25f};
+    private static final float[] RING_SIZE = {1.85f, 2.2f, 2.6f};
+    /**
+     * Beat patterns as eighth notes within a bar of the song (0 = the one). Each runs for two bars, then the
+     * next is drawn from those unlocked by play time, so the clapping rhythm keeps changing.
+     */
+    private static final int[][] RHYTHMS = {{0, 4}, {0}, {0, 2, 4, 6}, {0, 4, 6}, {0, 3, 6}, {0, 2, 3, 6}, {0, 1, 4, 5}};
+    private static final float[] RHYTHM_UNLOCK = {0, 0, 25, 40, 60, 90, 120};
+    private static final String[] RHYTHM_NAMES = {"Im Takt", "Ganz langsam", "Doppeltempo!", "Nachschlag!", "Synkope!",
+            "Galopp!", "Doppelklatsch!"};
+    private static final String[] RHYTHM_NAMES_EN = {"On the beat", "Nice and slow", "Double time!", "Extra beat!",
+            "Syncopation!", "Gallop!", "Double slap!"};
     /** Points every game starts with, and seconds of warm-up without drain or miss penalties. */
     private static final double START_POINTS = 25;
     private static final float WARMUP_S = 8f;
@@ -130,6 +142,10 @@ public class WackelView extends View {
     private float lastTap = -100f;
     /** Time of the beat the next tap is judged against, and whether it has already been hit. */
     private float nextBeat;
+    /** Pattern the beats come from, which of its beats is next, bars it still runs and the next beat's eighth. */
+    private int pattern, patternIdx, patternBars, beatPos;
+    /** Seconds from the previous beat to the next one; the ring needs exactly that long to close. */
+    private float beatGap = 1f;
     private boolean nextBeatHit, chordHit;
     private int combo, bestCombo;
     private float lastHitAt = -10f;
@@ -482,6 +498,11 @@ public class WackelView extends View {
         evo = 0;
         nextBeat = now + 1.5f;
         nextBeatHit = false;
+        pattern = 0;
+        patternIdx = 0;
+        patternBars = 4;
+        beatPos = 0;
+        beatGap = 1.5f;
         combo = 0;
         bestCombo = 0;
         heat = 0;
@@ -534,10 +555,12 @@ public class WackelView extends View {
         if (tapRate(1f) >= 12) special(Awards.TAP_MACHINE);
 
         // Judge the timing against the beat ring.
-        float off = Math.abs(now - nextBeat);
+        float d = now - nextBeat;
+        float off = Math.abs(d);
+        boolean inGood = d >= -earlyWindow() && d <= lateWindow();
         // A second tap on a beat that already counted is simply ignored, it is not a miss.
-        if (nextBeatHit && off <= GOOD_S) return;
-        lastJudge = nextBeatHit || off > GOOD_S ? 0 : (off <= PERFECT_S ? 2 : 1);
+        if (nextBeatHit && inGood) return;
+        lastJudge = nextBeatHit || !inGood ? 0 : (off <= PERFECT_S[beatSize()] ? 2 : 1);
         chordOpen = true;
         chordStart = now;
         chordLast = now;
@@ -548,7 +571,7 @@ public class WackelView extends View {
             // Off the beat: costs what a tap would bring and breaks the combo, so hammering does not pay.
             // Off the beat costs no points, it only brings nothing and ends the combo.
             chordGain = 0;
-            boolean late = now - (nextBeat - beatInterval()) < beatInterval() / 2f;
+            boolean late = now - (nextBeat - beatGap) < beatGap / 2f;
             word(late ? Lang.t("Zu spät", "Too late") : Lang.t("Zu früh", "Too early"), popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
             breakCombo();
             // Four misses within two seconds is hammering: time for the Kanadier.
@@ -823,9 +846,60 @@ public class WackelView extends View {
         }
     }
 
-    /** Seconds between beats: calm at first, getting faster the longer you last. */
-    private float beatInterval() {
-        return (float) MetalLoop.halfBar(heardSong >= 0 ? heardSong : musicSong());
+    /** Seconds per eighth note of the song that is playing (or would play, without music). */
+    private float eighth() {
+        return (float) MetalLoop.halfBar(heardSong >= 0 ? heardSong : musicSong()) / 4f;
+    }
+
+    /** 2 for the one of a bar, 1 for the other quarters, 0 for beats between the quarters. */
+    private int beatSize() {
+        return beatPos == 0 ? 2 : beatPos % 2 == 0 ? 1 : 0;
+    }
+
+    /** Eighths from the next beat to the one after; every pattern starts on the one, so this is exact. */
+    private int peekGap() {
+        int[] p = RHYTHMS[pattern];
+        return patternIdx + 1 < p.length ? p[patternIdx + 1] - beatPos : 8 - beatPos;
+    }
+
+    /** How early and how late a tap still counts; never more than half the way to the neighbouring beat. */
+    private float earlyWindow() {
+        return Math.min(GOOD_S[beatSize()], beatGap * 0.5f);
+    }
+
+    private float lateWindow() {
+        return Math.min(GOOD_S[beatSize()], peekGap() * eighth() * 0.5f);
+    }
+
+    /** Moves on to the next beat of the pattern, drawing a new pattern every two bars. */
+    private void advanceBeat() {
+        int prev = beatPos;
+        int gap;
+        if (++patternIdx < RHYTHMS[pattern].length) {
+            beatPos = RHYTHMS[pattern][patternIdx];
+            gap = beatPos - prev;
+        } else {
+            if (--patternBars <= 0) choosePattern();
+            patternIdx = 0;
+            beatPos = RHYTHMS[pattern][0];
+            gap = 8 - prev + beatPos;
+        }
+        beatGap = gap * eighth();
+        nextBeat += beatGap;
+        nextBeatHit = false;
+    }
+
+    private void choosePattern() {
+        int unlocked = 0;
+        while (unlocked < RHYTHMS.length && playTime >= RHYTHM_UNLOCK[unlocked]) unlocked++;
+        int next = rnd.nextInt(unlocked);
+        // The plain pattern comes back often enough to catch a breath; a new one gets announced.
+        if (next == pattern && unlocked > 2) next = 0;
+        patternBars = 2;
+        if (next != pattern && next != 0) {
+            word(Lang.pick(RHYTHM_NAMES, RHYTHM_NAMES_EN)[next], popoX, popoY - popoR * 1.95f, GOLD, 1f, 0);
+        }
+        pattern = next;
     }
 
     /** Song the player hears right now, -1 without music. */
@@ -841,10 +915,11 @@ public class WackelView extends View {
         }
         if ((int) clock[1] != heardSong) songChangedAt = now;
         heardSong = (int) clock[1];
-        double iv = MetalLoop.halfBar(heardSong);
-        // The kick that sounded last, in game time; the beat is the one of those closest to the planned beat.
-        double base = now - (clock[0] % iv);
-        nextBeat = (float) (base + Math.round((nextBeat - base) / iv) * iv);
+        double bar = MetalLoop.halfBar(heardSong) * 2;
+        // Where the beat's eighth sits in the bar that is sounding now, in game time; the beat goes to the
+        // nearest of those, so it lands on the music even after a song change or a loop.
+        double slot = now - (clock[0] % bar) + beatPos * bar / 8;
+        nextBeat = (float) (slot + Math.round((nextBeat - slot) / bar) * bar);
     }
 
     /** Lets the Kanadier pop up with a line, at most every 12 seconds. */
@@ -857,11 +932,10 @@ public class WackelView extends View {
 
     private void updateBeat() {
         syncBeatToMusic();
-        while (now > nextBeat + GOOD_S) {
+        while (now > nextBeat + lateWindow()) {
             // Right after the song changes the beat jumps onto the new tempo; a beat lost there is not the player's fault.
             if (!nextBeatHit && combo > 0 && now - songChangedAt > 1.5f) breakCombo();
-            nextBeat += beatInterval();
-            nextBeatHit = false;
+            advanceBeat();
         }
     }
 
@@ -1831,11 +1905,12 @@ public class WackelView extends View {
      * the beat. Tapping right then is PERFEKT.
      */
     private void drawBeatRing(Canvas c) {
-        float target = popoR * 2.2f;
-        float iv = beatInterval();
+        // Big ring on the one, small ring between the quarters; the ring closes over exactly the gap since
+        // the previous beat, so a fast ring means a quick beat.
+        float target = popoR * RING_SIZE[beatSize()];
         float until = nextBeat - now;
-        float k = Math.max(0f, Math.min(1f, until / iv));
-        boolean inWindow = Math.abs(until) <= PERFECT_S && !nextBeatHit;
+        float k = Math.max(0f, Math.min(1f, until / Math.max(0.1f, beatGap)));
+        boolean inWindow = Math.abs(until) <= PERFECT_S[beatSize()] && !nextBeatHit;
         line.setStyle(Paint.Style.STROKE);
         line.setColor(Color.WHITE);
         line.setAlpha(110);
