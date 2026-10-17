@@ -97,6 +97,10 @@ zum Durchtippen. Der ❓-Knopf rechts oben (unter DE/EN) auf dem Startbildschirm
 - **139 Awards** (Pokal rechts oben): 100 normale Awards nach den Klatschern **aller Spiele zusammen**
   (Schwelle 100 × Nummer^2,6, also Award 10 bei ~40.000 und Award 100 bei ~16 Mio.), jeder mit eigenem
   Namen und Effekt, dazu 39 Spezial-Awards für besondere Leistungen. Liste in `Awards.java`.
+- **Talente (ab 1.21, ⭐ links oben auf dem Startbildschirm):** dauerhafte Boni für Taler, Preis verdoppelt sich
+  pro Stufe: Polster (+10 Startpunkte), Dicke Haut (Zähler sinkt 4 % langsamer), Rhythmusgefühl (Trefferfenster
+  6 % breiter), Fieber-Glut (Fieber 2 Combo früher, bis ab Combo 6), Goodie-Glück (Goodies 8 % öfter), je 5 Stufen,
+  und Zweite Chance (einmal pro Spiel bei −10 gerettet).
 - **Popo-Taler** gibt es am Spielende (1 pro 500 Klatscher), für Bosse und für die Tages-Challenge.
 - **Garderobe** (👕 links oben auf dem Startbildschirm): Hüte, Brillen und Hosenfarben für Taler.
 - **Tages-Challenge:** jeden Tag eine von 10 Aufgaben, steht auf dem Startbildschirm. Geschafft gibt es

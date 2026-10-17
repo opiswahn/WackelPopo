@@ -73,14 +73,13 @@ public class WackelView extends View {
     /** Points every game starts with, and seconds of warm-up without drain or miss penalties. */
     private static final double START_POINTS = 25;
     private static final float WARMUP_S = 8f;
-    private static final int FEVER_COMBO = 16;
     /** Fingers landing within this time of each other belong to the same Griff. */
     private static final float CHORD_GAP_S = 0.09f;
     private static final float CHORD_MAX_S = 0.22f;
     private static final int EFFECT_COUNT = 12;
 
     private static final int READY = 0, PLAYING = 1, OVER = 2;
-    private static final int NO_OVERLAY = 0, SHOP = 1, TROPHY = 2, WARDROBE = 3;
+    private static final int NO_OVERLAY = 0, SHOP = 1, TROPHY = 2, WARDROBE = 3, TALENTS = 4;
 
     private static final int SHAPE_RECT = 0, SHAPE_CIRCLE = 1, SHAPE_HEART = 2, SHAPE_STAR = 3, SHAPE_PUFF = 4,
             SHAPE_TEXT = 5, SHAPE_BUBBLE = 6, SHAPE_COIN = 7;
@@ -258,6 +257,10 @@ public class WackelView extends View {
 
     private final Wardrobe wardrobe;
     private final Career career;
+    private final Talents talents;
+    private boolean secondChanceUsed;
+    private final RectF talentBtn = new RectF();
+    private final RectF[] talentRows = new RectF[Talents.NAMES.length];
     /** This game's numbers for the career missions, and what the career brought this game. */
     private int perfects, offbeatHits, feverCount, missionsThisGame, levelsThisGame;
     private long xpThisGame;
@@ -328,6 +331,8 @@ public class WackelView extends View {
         settings = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
         wardrobe = new Wardrobe(context);
         career = new Career(context);
+        talents = new Talents(context);
+        for (int i = 0; i < talentRows.length; i++) talentRows[i] = new RectF();
         daily = new Daily(context);
         for (int cat = 0; cat < wardrobeCells.length; cat++) {
             wardrobeCells[cat] = new RectF[Wardrobe.ITEMS[cat].length];
@@ -355,6 +360,7 @@ public class WackelView extends View {
         float s = unit * 0.13f, m = unit * 0.04f, top = h * 0.035f;
         trophyBtn.set(w - s - m, top, w - m, top + s);
         shopBtn.set(m, top, m + s, top + s);
+        talentBtn.set(m, top + s + m * 0.5f, m + s * 0.75f, top + s + m * 0.5f + s * 0.75f);
         float ms = s * 0.75f;
         musicBtn.set(w - m - ms, top + s + m * 0.5f, w - m, top + s + m * 0.5f + ms);
         langBtn.set(musicBtn.left, musicBtn.bottom + m * 0.5f, musicBtn.right, musicBtn.bottom + m * 0.5f + ms);
@@ -383,6 +389,20 @@ public class WackelView extends View {
                     buy(i);
                     return true;
                 }
+            }
+            if (closeBtn.contains(x, y) || !card.contains(x, y)) overlay = NO_OVERLAY;
+            return true;
+        }
+        if (overlay == TALENTS) {
+            for (int i = 0; i < talentRows.length; i++) {
+                if (!talentRows[i].contains(x, y)) continue;
+                if (talents.buy(i, wardrobe)) {
+                    Synth.melody(new float[]{659, 784, 1047}, 0.07f);
+                    startMove(pick(MEDIUM_MOVES), 0.8f, 0.8f, 2);
+                } else {
+                    vibrate(new long[]{0, 30, 40, 30});
+                }
+                return true;
             }
             if (closeBtn.contains(x, y) || !card.contains(x, y)) overlay = NO_OVERLAY;
             return true;
@@ -428,6 +448,10 @@ public class WackelView extends View {
             // Works any time, even mid-round; every text picks its language when it is drawn.
             Lang.en = !Lang.en;
             settings.edit().putBoolean("english", Lang.en).apply();
+            return true;
+        }
+        if (firstFinger && state == READY && talentBtn.contains(x, y)) {
+            overlay = TALENTS;
             return true;
         }
         if (firstFinger && state == READY && helpBtn.contains(x, y)) {
@@ -488,7 +512,8 @@ public class WackelView extends View {
 
     private void newGame() {
         state = PLAYING;
-        counter = START_POINTS + career.startBonus();
+        counter = START_POINTS + career.startBonus() + talents.startPoints();
+        secondChanceUsed = false;
         career.refresh();
         perfects = offbeatHits = feverCount = missionsThisGame = levelsThisGame = 0;
         xpThisGame = 0;
@@ -581,7 +606,7 @@ public class WackelView extends View {
         boolean inGood = d >= -earlyWindow() && d <= lateWindow();
         // A second tap on a beat that already counted is simply ignored, it is not a miss.
         if (nextBeatHit && inGood) return;
-        lastJudge = nextBeatHit || !inGood ? 0 : (off <= PERFECT_S[beatSize()] ? 2 : 1);
+        lastJudge = nextBeatHit || !inGood ? 0 : (off <= PERFECT_S[beatSize()] * talents.windowFactor() ? 2 : 1);
         chordOpen = true;
         chordStart = now;
         chordLast = now;
@@ -631,7 +656,7 @@ public class WackelView extends View {
         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
         tapBurst(x, y);
         if (bossActive) hitBoss();
-        if (combo == FEVER_COMBO) startFever();
+        if (combo == talents.feverCombo()) startFever();
         double timing = lastJudge == 2 ? 3 : 1.5;
         double comboMult = Math.min(3, 1 + 0.1 * combo);
         double gain = shop.tapGain(combo >= 5) * timing * comboMult * (fever ? FEVER_BONUS : 1) * (boosted(Goodies.CHOCO) ? 2 : 1);
@@ -865,6 +890,13 @@ public class WackelView extends View {
         if (playTime >= 600) special(Awards.SURVIVE_10);
         if (playTime >= 1200) special(Awards.SURVIVE_20);
 
+        if (counter <= GAME_OVER_AT && talents.secondChance() && !secondChanceUsed) {
+            // The talent saves the round once: back to a small cushion.
+            secondChanceUsed = true;
+            counter = 15;
+            queueBanner(Lang.t("ZWEITE CHANCE!", "SECOND CHANCE!"), Lang.t("Der Popo rappelt sich auf", "The booty gets back up"), GREEN);
+            Synth.melody(new float[]{392, 523, 659, 784}, 0.09f);
+        }
         if (counter <= GAME_OVER_AT) gameOver();
     }
 
@@ -872,7 +904,7 @@ public class WackelView extends View {
     private void startFever() {
         fever = true;
         feverStart = now;
-        queueBanner(Lang.t("FIEBER-MODUS!", "FEVER MODE!"), "Combo " + FEVER_COMBO
+        queueBanner(Lang.t("FIEBER-MODUS!", "FEVER MODE!"), "Combo " + talents.feverCombo()
                 + Lang.t(": alles x1,25, bleib im Takt!", ": everything x1.25, stay on the beat!"), RED);
         Synth.melody(new float[]{523, 659, 784, 1047}, 0.06f);
         special(Awards.FEVER);
@@ -908,11 +940,11 @@ public class WackelView extends View {
 
     /** How early and how late a tap still counts; never more than half the way to the neighbouring beat. */
     private float earlyWindow() {
-        return Math.min(GOOD_S[beatSize()], beatGap * 0.5f);
+        return Math.min(GOOD_S[beatSize()] * talents.windowFactor(), beatGap * 0.5f);
     }
 
     private float lateWindow() {
-        return Math.min(GOOD_S[beatSize()], peekGap() * eighth() * 0.5f);
+        return Math.min(GOOD_S[beatSize()] * talents.windowFactor(), peekGap() * eighth() * 0.5f);
     }
 
     /** Moves on to the next beat of the pattern, drawing a new pattern every two bars. */
@@ -1245,7 +1277,7 @@ public class WackelView extends View {
             goodieBorn = now;
             goodieBaseX = getWidth() * (0.18f + 0.64f * rnd.nextFloat());
             goodieY = -unit * 0.12f;
-            nextGoodieAt = playTime + 30f + rnd.nextFloat() * 20f;
+            nextGoodieAt = playTime + (30f + rnd.nextFloat() * 20f) * talents.goodieInterval();
             Synth.melody(new float[]{1319, 1047, 1319}, 0.05f);
         }
         if (goodie < 0) return;
@@ -1331,7 +1363,7 @@ public class WackelView extends View {
 
     private double drainRate() {
         if (boosted(Goodies.ICE)) return 0;
-        return BASE_DRAIN * Math.pow(DRAIN_GROWTH, playTime) * shop.drainFactor();
+        return BASE_DRAIN * Math.pow(DRAIN_GROWTH, playTime) * shop.drainFactor() * talents.drainFactor();
     }
 
     private void gameOver() {
@@ -1758,6 +1790,7 @@ public class WackelView extends View {
         if (overlay == SHOP) drawShop(c, w, h);
         if (overlay == TROPHY) drawTrophyScreen(c, w, h);
         if (overlay == WARDROBE) drawWardrobe(c, w, h);
+        if (overlay == TALENTS) drawTalents(c, w, h);
 
         postInvalidateOnAnimation();
     }
@@ -1989,7 +2022,7 @@ public class WackelView extends View {
         float target = popoR * RING_SIZE[beatSize()];
         float until = nextBeat - now;
         float k = Math.max(0f, Math.min(1f, until / Math.max(0.1f, beatGap)));
-        boolean inWindow = Math.abs(until) <= PERFECT_S[beatSize()] && !nextBeatHit;
+        boolean inWindow = Math.abs(until) <= PERFECT_S[beatSize()] * talents.windowFactor() && !nextBeatHit;
         line.setStyle(Paint.Style.STROKE);
         line.setColor(Color.WHITE);
         line.setAlpha(110);
@@ -2244,7 +2277,7 @@ public class WackelView extends View {
             rect.set(fx, fy, fx + fw, fy + fh);
             c.drawRoundRect(rect, fh / 2, fh / 2, fill);
             fill.setColor(RED);
-            rect.set(fx, fy, fx + fw * Math.min(1f, combo / (float) FEVER_COMBO), fy + fh);
+            rect.set(fx, fy, fx + fw * Math.min(1f, combo / (float) talents.feverCombo()), fy + fh);
             c.drawRoundRect(rect, fh / 2, fh / 2, fill);
         }
 
@@ -2277,7 +2310,7 @@ public class WackelView extends View {
         tutorial = -1;
         settings.edit().putBoolean("tutorialDone", true).apply();
         playTime = 0;
-        counter = START_POINTS + career.startBonus();
+        counter = START_POINTS + career.startBonus() + talents.startPoints();
         combo = 0;
         queueBanner(Lang.t("Los geht's!", "Let's go!"), Lang.t("Viel Spaß beim Klatschen", "Have fun slapping"), GOLD);
     }
@@ -2368,6 +2401,14 @@ public class WackelView extends View {
             c.drawText("❓", helpBtn.centerX(), helpBtn.centerY() + helpBtn.width() * 0.2f, text);
         }
         drawButtonFrame(c, shopBtn);
+        if (state == READY) {
+            drawButtonFrame(c, talentBtn);
+            text.setStyle(Paint.Style.FILL);
+            text.setTextAlign(Paint.Align.CENTER);
+            text.setTextSize(talentBtn.width() * 0.55f);
+            text.setColor(INK);
+            c.drawText("⭐", talentBtn.centerX(), talentBtn.centerY() + talentBtn.width() * 0.2f, text);
+        }
         if (state != PLAYING) {
             text.setStyle(Paint.Style.FILL);
             text.setTextAlign(Paint.Align.CENTER);
@@ -3206,6 +3247,62 @@ public class WackelView extends View {
         line.setStrokeWidth(unit * 0.006f);
         rect.set(bx, by, bx + bw, by + bh);
         c.drawRoundRect(rect, bh / 2, bh / 2, line);
+    }
+
+    /** Talents: one row per talent with its level, effect and the price of the next level in Taler. */
+    private void drawTalents(Canvas c, float w, float h) {
+        drawCard(c, card);
+        float y = card.top + unit * 0.09f;
+        drawOutlined(c, Lang.t("⭐ Talente", "⭐ Talents"), w / 2f, y, unit * 0.065f, GOLD, 0);
+        y += unit * 0.06f;
+        text.setStyle(Paint.Style.FILL);
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setColor(INK);
+        text.setTextSize(unit * 0.04f);
+        c.drawText("🪙 " + fmt(wardrobe.taler()) + Lang.t(" Popo-Taler  ·  bleiben für immer", " Booty Coins  ·  kept forever"), w / 2f, y, text);
+        y += unit * 0.04f;
+        float rowH = unit * 0.15f, left = card.left + unit * 0.04f, right = card.right - unit * 0.04f;
+        for (int i = 0; i < talentRows.length; i++) {
+            RectF row = talentRows[i];
+            row.set(left, y, right, y + rowH * 0.9f);
+            boolean maxed = talents.maxed(i), affordable = !maxed && wardrobe.taler() >= talents.price(i);
+            fill.setColor(Color.WHITE);
+            c.drawRoundRect(row, unit * 0.03f, unit * 0.03f, fill);
+            line.setColor(INK);
+            line.setStrokeWidth(unit * 0.004f);
+            c.drawRoundRect(row, unit * 0.03f, unit * 0.03f, line);
+            text.setTextAlign(Paint.Align.LEFT);
+            text.setColor(INK);
+            text.setTextSize(rowH * 0.36f);
+            c.drawText(Talents.ICONS[i], row.left + unit * 0.02f, row.top + rowH * 0.55f, text);
+            String name = Lang.pick(Talents.NAMES, Talents.NAMES_EN)[i] + "  " + talents.level(i) + "/" + talents.max(i);
+            float tx = row.left + rowH * 0.62f, maxW = row.width() - rowH * 0.62f - unit * 0.2f;
+            text.setTextSize(fit(name, rowH * 0.27f, maxW));
+            text.setFakeBoldText(true);
+            c.drawText(name, tx, row.top + rowH * 0.36f, text);
+            text.setFakeBoldText(false);
+            String desc = talents.describe(i);
+            text.setTextSize(fit(desc, rowH * 0.2f, maxW));
+            c.drawText(desc, tx, row.top + rowH * 0.66f, text);
+            float pw = unit * 0.17f, ph = rowH * 0.45f;
+            rect.set(row.right - pw - unit * 0.02f, row.centerY() - ph / 2, row.right - unit * 0.02f, row.centerY() + ph / 2);
+            fill.setColor(maxed ? 0xFF9E9E9E : (affordable ? GREEN : 0xFFBDBDBD));
+            c.drawRoundRect(rect, ph / 2, ph / 2, fill);
+            text.setTextAlign(Paint.Align.CENTER);
+            text.setColor(Color.WHITE);
+            String price = maxed ? "MAX" : "🪙 " + fmt(talents.price(i));
+            text.setTextSize(fit(price, ph * 0.5f, pw * 0.85f));
+            c.drawText(price, rect.centerX(), rect.centerY() + ph * 0.18f, text);
+            y += rowH;
+        }
+        float bw = unit * 0.45f, bh = unit * 0.1f;
+        closeBtn.set(w / 2f - bw / 2, card.bottom - unit * 0.05f - bh, w / 2f + bw / 2, card.bottom - unit * 0.05f);
+        fill.setColor(0xFFFF7043);
+        c.drawRoundRect(closeBtn, bh / 2, bh / 2, fill);
+        text.setColor(Color.WHITE);
+        text.setTextSize(bh * 0.42f);
+        c.drawText(Lang.t("Fertig", "Done"), closeBtn.centerX(), closeBtn.centerY() + bh * 0.15f, text);
+        text.setTextAlign(Paint.Align.CENTER);
     }
 
     private void drawWardrobe(Canvas c, float w, float h) {

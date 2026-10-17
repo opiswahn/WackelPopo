@@ -46,6 +46,13 @@ public final class Wardrobe {
         prefs.edit().putLong("taler", taler() + n).apply();
     }
 
+    /** Pays n Taler if there are enough; false otherwise. */
+    public boolean spend(long n) {
+        if (taler() < n) return false;
+        prefs.edit().putLong("taler", taler() - n).apply();
+        return true;
+    }
+
     public boolean owned(int cat, int item) {
         return item == 0 || prefs.getBoolean("own_" + cat + "_" + item, false);
     }
