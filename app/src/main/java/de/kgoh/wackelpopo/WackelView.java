@@ -51,12 +51,14 @@ public class WackelView extends View {
     private static final float IDLE_ENERGY = 0.25f;
     private static final float PERIOD_S = 0.52f;
     private static final double GAME_OVER_AT = -10;
-    private static final double BASE_DRAIN = 1.2;
+    private static final double BASE_DRAIN = 0.85;
     /** The cool-down speeds up by this factor every second: doubles roughly every minute. */
-    private static final double DRAIN_GROWTH = 1.015;
+    private static final double DRAIN_GROWTH = 1.014;
     private static final double FEVER_BONUS = 1.25;
     private static final double CRIT_FACTOR = 3;
-    private static final float FAST_TAP_S = 0.3f;
+    /** Rhythm: a tap this close to the beat is PERFEKT, a bit further GUT, anything else DANEBEN. */
+    private static final float PERFECT_S = 0.07f, GOOD_S = 0.15f;
+    private static final int FEVER_COMBO = 16;
     /** Fingers landing within this time of each other belong to the same Griff. */
     private static final float CHORD_GAP_S = 0.09f;
     private static final float CHORD_MAX_S = 0.22f;
@@ -121,6 +123,13 @@ public class WackelView extends View {
     private double total;
     private float playTime;
     private float lastTap = -100f;
+    /** Time of the beat the next tap is judged against, and whether it has already been hit. */
+    private float nextBeat;
+    private boolean nextBeatHit, chordHit;
+    private int combo, bestCombo;
+    private float lastHitAt = -10f;
+    private int lastJudge;
+    private final String versionLabel;
     private int nextAward;
     /** Klatscher of all earlier games; awards count these plus this game's total. */
     private double lifetimeBase;
@@ -148,7 +157,7 @@ public class WackelView extends View {
 
     // Fever mode: kicks in after a few seconds of very fast tapping.
     private boolean fever;
-    private float feverCharge, feverStart, feverCalm;
+    private float feverStart;
 
     // Bonus star flying across the screen.
     private boolean starActive;
@@ -238,6 +247,13 @@ public class WackelView extends View {
         super(context);
         scores = new HighscoreStore(context);
         awards = new Awards(context);
+        String version;
+        try {
+            version = "v" + context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            version = "";
+        }
+        versionLabel = version;
         settings = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
         wardrobe = new Wardrobe(context);
         daily = new Daily(context);
@@ -345,7 +361,11 @@ public class WackelView extends View {
             }
             return true;
         }
-        if (state == READY) newGame();
+        if (state == READY) {
+            // The starting tap only starts; the first beat comes a moment later.
+            newGame();
+            return true;
+        }
         if (goodie >= 0 && Math.hypot(x - goodieX, y - goodieY) < unit * 0.1f) {
             catchGoodie();
             return true;
@@ -387,7 +407,6 @@ public class WackelView extends View {
         chordOpen = false;
         chordRepeat = 0;
         fever = false;
-        feverCharge = 0;
         starActive = false;
         starsCaught = 0;
         goodie = -1;
@@ -395,6 +414,10 @@ public class WackelView extends View {
         bossActive = false;
         bossesBeaten = 0;
         evo = 0;
+        nextBeat = now + 1.5f;
+        nextBeatHit = false;
+        combo = 0;
+        bestCombo = 0;
         heat = 0;
         evoStart = -10f;
         megaBoss = false;
@@ -423,10 +446,11 @@ public class WackelView extends View {
         boolean left = x < popoX;
         prints[printIndex++ % prints.length] = new float[]{left ? -1 : 1, rnd.nextFloat() - 0.5f, rnd.nextFloat() - 0.5f,
                 (rnd.nextFloat() - 0.5f) * 50f, now};
-        tapBurst(x, y);
-        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-        if (bossActive) hitBoss();
         if (chordOpen) {
+            if (chordHit) {
+                tapBurst(x, y);
+                if (bossActive) hitBoss();
+            }
             // Another finger of the same grip: it raises the grip's multiplier, no points of its own.
             if (left) chordLeft++;
             else chordRight++;
@@ -434,10 +458,41 @@ public class WackelView extends View {
             return;
         }
 
-        boolean fast = now - lastTap < FAST_TAP_S;
         lastTap = now;
         taps++;
-        double gain = shop.tapGain(fast) * (fever ? FEVER_BONUS : 1) * (boosted(Goodies.CHOCO) ? 2 : 1);
+        tapTimes[tapIndex++ % tapTimes.length] = now;
+        if (tapRate(1f) >= 12) special(Awards.TAP_MACHINE);
+
+        // Judge the timing against the beat ring.
+        float off = Math.abs(now - nextBeat);
+        lastJudge = nextBeatHit || off > GOOD_S ? 0 : (off <= PERFECT_S ? 2 : 1);
+        chordOpen = true;
+        chordStart = now;
+        chordLast = now;
+        chordLeft = left ? 1 : 0;
+        chordRight = left ? 0 : 1;
+        chordHit = lastJudge > 0;
+        if (!chordHit) {
+            // Off the beat: costs what a tap would bring and breaks the combo, so hammering does not pay.
+            double loss = shop.tapGain(false);
+            counter -= loss;
+            chordGain = 0;
+            floatText("−" + fmt(loss), x, y, 0xFFB0BEC5, 0.8f, 0);
+            word("Daneben", popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
+            breakCombo();
+            return;
+        }
+        nextBeatHit = true;
+        lastHitAt = now;
+        combo++;
+        bestCombo = Math.max(bestCombo, combo);
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+        tapBurst(x, y);
+        if (bossActive) hitBoss();
+        if (combo == FEVER_COMBO) startFever();
+        double timing = lastJudge == 2 ? 3 : 1.5;
+        double comboMult = Math.min(3, 1 + 0.1 * combo);
+        double gain = shop.tapGain(combo >= 5) * timing * comboMult * (fever ? FEVER_BONUS : 1) * (boosted(Goodies.CHOCO) ? 2 : 1);
         boolean crit = rnd.nextDouble() < shop.critChance() + (boosted(Goodies.CLOVER) ? 0.25 : 0);
         if (crit) {
             gain *= CRIT_FACTOR;
@@ -449,17 +504,9 @@ public class WackelView extends View {
         counter += gain;
         total += gain;
         energy = Math.min(energy + 0.6f, 1.8f);
-        heat = Math.min(1f, heat + 0.045f);
-
-        chordOpen = true;
-        chordStart = now;
-        chordLast = now;
-        chordLeft = left ? 1 : 0;
-        chordRight = left ? 0 : 1;
+        heat = Math.min(1f, heat + 0.07f);
         chordGain = gain;
 
-        tapTimes[tapIndex++ % tapTimes.length] = now;
-        if (tapRate(1f) >= 12) special(Awards.TAP_MACHINE);
         if (taps >= 1000) special(Awards.TAPS_1000);
         if (taps >= 5000) special(Awards.TAPS_5000);
 
@@ -470,15 +517,12 @@ public class WackelView extends View {
             p.vy = -popoR * 1.5f;
             p.vr = 300f;
         }
-        floatText((crit ? "KRIT! +" : "+") + fmt(gain), x, y, crit ? GOLD : Color.WHITE, crit ? 1.5f : 0.9f, crit ? 2 : 0);
-        if (rnd.nextFloat() < 0.1f) {
-            float a = rnd.nextFloat() * 6.283f;
-            float d = popoR * (1.3f + rnd.nextFloat() * 0.6f);
-            word(Words.pick(Words.TAP, rnd), popoX + (float) Math.cos(a) * d, popoY + (float) Math.sin(a) * d * 0.8f,
-                    PARTY[rnd.nextInt(PARTY.length)], 0.9f + rnd.nextFloat() * 0.5f, rnd.nextInt(Words.STYLES));
-        }
-        if (taps % 40 == 0 && tapRate(2f) >= 6) {
-            word(Words.pick(Words.PRAISE, rnd), popoX, popoY - popoR * 1.6f, Color.WHITE, 1.3f, 5);
+        floatText((crit ? "KRIT! +" : "+") + fmt(gain), x, y, crit ? GOLD : Color.WHITE, crit ? 1.3f : 0.9f, crit ? 2 : 0);
+        word(lastJudge == 2 ? "PERFEKT!" : "Gut", popoX, popoY - popoR * 1.35f, lastJudge == 2 ? GOLD : Color.WHITE,
+                lastJudge == 2 ? 1f : 0.8f, 0);
+        if (combo % 10 == 0) {
+            word("Combo x" + combo + "! " + Words.pick(Words.PRAISE, rnd), popoX, popoY - popoR * 1.75f, GOLD, 1.1f, 5);
+            Synth.melody(new float[]{784, 1047}, 0.06f);
         }
     }
 
@@ -521,7 +565,7 @@ public class WackelView extends View {
     private void resolveChord() {
         chordOpen = false;
         Chords.Chord chord = Chords.of(chordLeft, chordRight);
-        if (chord == null) return;
+        if (chord == null || !chordHit) return;
         chordRepeat = chord.key.equals(lastChordKey) && now - lastChordAt < 2.5f ? chordRepeat + 1 : 1;
         lastChordKey = chord.key;
         lastChordAt = now;
@@ -632,6 +676,7 @@ public class WackelView extends View {
         total += auto * dt;
         while (nextAward < Awards.COUNT && lifetimeBase + total >= Awards.threshold(nextAward)) award(nextAward++);
 
+        updateBeat();
         updateFever(dt);
         heat = Math.max(0f, heat - dt * 0.12f);
         if (heat > 0.85f) {
@@ -676,42 +721,47 @@ public class WackelView extends View {
         if (counter <= GAME_OVER_AT) gameOver();
     }
 
-    private void updateFever(float dt) {
-        float rate = tapRate(1f);
-        if (!fever) {
-            feverCharge = rate >= 8 ? feverCharge + dt : Math.max(0, feverCharge - dt * 2);
-            if (feverCharge >= 2.5f) {
-                fever = true;
-                feverStart = now;
-                feverCalm = 0;
-                queueBanner("FIEBER-MODUS!", "Alles x1,25, nicht aufhören!", RED);
-                flashUntil = now + 0.2f;
-                Synth.melody(new float[]{523, 659, 784, 659, 784, 1047}, 0.06f);
-                special(Awards.FEVER);
-                feverReached = true;
-            }
-            return;
-        }
-        feverCalm = rate < 4 ? feverCalm + dt : 0;
-        if (now - feverStart >= 30f) special(Awards.LONG_FEVER);
-        if (feverCalm > 1.2f) {
+    /** Fever starts at a combo of 16 and lasts until the combo breaks. */
+    private void startFever() {
+        fever = true;
+        feverStart = now;
+        queueBanner("FIEBER-MODUS!", "Combo " + FEVER_COMBO + ": alles x1,25, bleib im Takt!", RED);
+        Synth.melody(new float[]{523, 659, 784, 1047}, 0.06f);
+        special(Awards.FEVER);
+        feverReached = true;
+    }
+
+    /** A missed beat or a tap off the beat ends the combo (and with it the fever). */
+    private void breakCombo() {
+        if (combo >= 10) word("Combo weg!", popoX, popoY - popoR * 1.75f, 0xFFB0BEC5, 1f, 0);
+        combo = 0;
+        if (fever) {
             fever = false;
-            feverCharge = 0;
-            word("Fieber vorbei", popoX, popoY - popoR * 1.4f, Color.WHITE, 1f, 0);
-            return;
+            word("Fieber vorbei", popoX, popoY - popoR * 1.55f, Color.WHITE, 0.9f, 0);
         }
-        if (move == MOVE_NONE || now > moveStart + moveDur) {
-            startMove(pick(MEDIUM_MOVES), 0.9f, 1f, 1);
+    }
+
+    /** Seconds between beats: calm at first, getting faster the longer you last. */
+    private float beatInterval() {
+        return Math.max(0.45f, 0.9f - playTime * 0.002f);
+    }
+
+    private void updateBeat() {
+        while (now > nextBeat + GOOD_S) {
+            if (!nextBeatHit && combo > 0) breakCombo();
+            nextBeat += beatInterval();
+            nextBeatHit = false;
         }
-        if (rnd.nextFloat() < dt * 25) {
+    }
+
+    private void updateFever(float dt) {
+        if (!fever) return;
+        if (now - feverStart >= 30f) special(Awards.LONG_FEVER);
+        if (rnd.nextFloat() < dt * 8) {
             Particle p = spawn(popoX + (rnd.nextFloat() - 0.5f) * popoR * 3, popoY + popoR * 0.6f, SHAPE_PUFF,
                     PARTY[rnd.nextInt(3)], popoR * 0.1f, 1f);
             p.vy = -popoR * 2.5f;
             p.grow = popoR * 0.15f;
-        }
-        if (now >= nextWordAt) {
-            nextWordAt = now + 2.2f;
-            word(Words.pick(Words.PRAISE, rnd), popoX, popoY - popoR * 1.7f, Color.WHITE, 1.2f, rnd.nextInt(Words.STYLES));
         }
     }
 
@@ -723,7 +773,7 @@ public class WackelView extends View {
             starX = fromLeft ? -unit * 0.1f : getWidth() + unit * 0.1f;
             starBaseY = getHeight() * (0.18f + 0.4f * rnd.nextFloat());
             starVX = (getWidth() + unit * 0.2f) / 4.5f * (fromLeft ? 1 : -1);
-            nextStarAt = playTime + 30f + rnd.nextFloat() * 30f;
+            nextStarAt = playTime + 60f + rnd.nextFloat() * 30f;
             Synth.melody(new float[]{1568, 2093}, 0.05f);
         }
         if (!starActive) return;
@@ -755,10 +805,10 @@ public class WackelView extends View {
     private void updateBoss() {
         if (!bossActive && goodie < 0 && playTime >= nextBossAt) {
             bossActive = true;
-            bossMaxHp = bossHp = (60 + 25 * bossesBeaten) * (megaBoss ? 2 : 1);
+            bossMaxHp = bossHp = (15 + 5 * bossesBeaten) * (megaBoss ? 2 : 1);
             bossEnd = playTime + BOSS_SECONDS;
             bossName = (megaBoss ? "MEGA-" : "") + BOSS_NAMES[rnd.nextInt(BOSS_NAMES.length)];
-            queueBanner(megaBoss ? "MEGA-BOSS!" : "BOSS-POPO!", bossName + " · " + bossMaxHp + " Klatscher in 20 s!", PURPLE);
+            queueBanner(megaBoss ? "MEGA-BOSS!" : "BOSS-POPO!", bossName + " · " + bossMaxHp + " Treffer im Takt in 20 s!", PURPLE);
             Synth.melody(new float[]{98, 0, 98, 0, 117, 98}, 0.1f);
             shakeUntil = now + 0.6f;
             vibrate(new long[]{0, 200, 80, 200});
@@ -920,7 +970,7 @@ public class WackelView extends View {
             goodieBorn = now;
             goodieBaseX = getWidth() * (0.18f + 0.64f * rnd.nextFloat());
             goodieY = -unit * 0.12f;
-            nextGoodieAt = playTime + 15f + rnd.nextFloat() * 15f;
+            nextGoodieAt = playTime + 30f + rnd.nextFloat() * 20f;
             Synth.melody(new float[]{1319, 1047, 1319}, 0.05f);
         }
         if (goodie < 0) return;
@@ -1396,6 +1446,7 @@ public class WackelView extends View {
         drawDanger(c, w, h);
         drawParticles(c);
         if (starActive) drawBonusStar(c);
+        if (state == PLAYING && overlay == NO_OVERLAY) drawBeatRing(c);
         if (goodie >= 0) drawGoodie(c);
         Music.set(musicSong(), musicLevel());
         if (state == PLAYING) drawBoosts(c);
@@ -1403,6 +1454,14 @@ public class WackelView extends View {
         drawHud(c, w, h);
         drawButtons(c);
         drawBanner(c, w, h);
+        text.setStyle(Paint.Style.FILL);
+        text.setTextAlign(Paint.Align.LEFT);
+        text.setTextSize(unit * 0.03f);
+        text.setColor(disco ? Color.WHITE : INK);
+        text.setAlpha(140);
+        c.drawText(versionLabel, unit * 0.03f, h - unit * 0.025f, text);
+        text.setAlpha(255);
+        text.setTextAlign(Paint.Align.CENTER);
         c.restore();
 
         if (now < flashUntil) c.drawColor(Color.argb((int) (200 * Math.min(1f, (flashUntil - now) / 0.25f)), 255, 255, 255));
@@ -1631,6 +1690,37 @@ public class WackelView extends View {
         }
     }
 
+    /**
+     * The beat ring: a ring shrinks towards the dashed target circle around the popo and touches it exactly on
+     * the beat. Tapping right then is PERFEKT.
+     */
+    private void drawBeatRing(Canvas c) {
+        float target = popoR * 2.2f;
+        float iv = beatInterval();
+        float until = nextBeat - now;
+        float k = Math.max(0f, Math.min(1f, until / iv));
+        boolean inWindow = Math.abs(until) <= PERFECT_S && !nextBeatHit;
+        line.setStyle(Paint.Style.STROKE);
+        line.setColor(Color.WHITE);
+        line.setAlpha(110);
+        line.setStrokeWidth(popoR * 0.035f);
+        c.drawCircle(popoX, popoY, target, line);
+        if (!nextBeatHit) {
+            line.setColor(inWindow ? GOLD : Color.WHITE);
+            line.setAlpha((int) (255 * (1f - 0.75f * k)));
+            line.setStrokeWidth(popoR * (inWindow ? 0.09f : 0.055f));
+            c.drawCircle(popoX, popoY, target + popoR * 1.6f * k, line);
+        }
+        float since = now - lastHitAt;
+        if (since < 0.3f) {
+            line.setColor(lastJudge == 2 ? GOLD : Color.WHITE);
+            line.setAlpha((int) (255 * (1f - since / 0.3f)));
+            line.setStrokeWidth(popoR * 0.08f);
+            c.drawCircle(popoX, popoY, target * (1f + since * 0.6f), line);
+        }
+        line.setAlpha(255);
+    }
+
     /** A soft pulsing glow behind an evolved popo, plus a ring that bursts outwards right after it evolves. */
     private void drawAura(Canvas c) {
         int color = evo == 4 ? Color.HSVToColor(new float[]{(now * 90) % 360, 0.6f, 1f}) : EVO_COLORS[evo - 1];
@@ -1722,7 +1812,7 @@ public class WackelView extends View {
         int ink = dark ? Color.WHITE : INK;
         if (state == READY) {
             drawOutlined(c, "Tippen zum Starten!", w / 2f, h * 0.79f, unit * 0.075f, ink, 0);
-            smallText(c, "Klatsch den Counter hoch, er sinkt von allein.", w / 2f, h * 0.835f, ink);
+            smallText(c, "Klatsch im Takt: wenn der Ring den Kreis trifft!", w / 2f, h * 0.835f, ink);
             smallText(c, "Mehrere Finger gleichzeitig = Griff-Bonus!", w / 2f, h * 0.87f, ink);
             String challenge = daily.doneToday()
                     ? "✔ Tages-Challenge geschafft · 🔥 " + daily.streak() + " Tage in Folge"
@@ -1739,7 +1829,7 @@ public class WackelView extends View {
                 : (evo > 0 ? "✨ " + EVO_NAMES[evo - 1] + " ✨" + (evo < EVO_AT.length ? "  ·  nächste Stufe bei " + fmt(EVO_AT[evo]) : "")
                 : "Popo-Klatsch-Counter  ·  Verwandlung bei " + fmt(EVO_AT[0]));
         smallText(c, counterLabel, w / 2f, h * 0.81f, ink);
-        String rates = "+" + fmt(shop.tapGain(false)) + " pro Klatsch   ·   −" + fmt1(drainRate()) + "/s";
+        String rates = "Combo x" + combo + "   ·   +" + fmt(shop.tapGain(false)) + " pro Klatsch   ·   −" + fmt1(drainRate()) + "/s";
         if (autoRate() > 0) rates += "   ·   Auto +" + fmt1(autoRate()) + "/s";
         smallText(c, rates, w / 2f, h * 0.843f, ink);
 
@@ -1764,14 +1854,14 @@ public class WackelView extends View {
         text.setTextAlign(Paint.Align.CENTER);
         c.drawText(label, w / 2f, by + bh * 0.72f, text);
 
-        // Fever charge: fills while you tap very fast.
-        if (!fever && feverCharge > 0) {
+        // Fever charge: fills with the combo, fever starts when it is full.
+        if (!fever && combo > 0) {
             float fw = unit * 0.5f, fh = unit * 0.015f, fx = w / 2f - fw / 2f, fy = h * 0.915f;
             fill.setColor(0x33000000);
             rect.set(fx, fy, fx + fw, fy + fh);
             c.drawRoundRect(rect, fh / 2, fh / 2, fill);
             fill.setColor(RED);
-            rect.set(fx, fy, fx + fw * Math.min(1f, feverCharge / 2.5f), fy + fh);
+            rect.set(fx, fy, fx + fw * Math.min(1f, combo / (float) FEVER_COMBO), fy + fh);
             c.drawRoundRect(rect, fh / 2, fh / 2, fill);
         }
 

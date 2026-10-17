@@ -4,6 +4,16 @@ Ein Comic-Popo-Klatschspiel. Jedes Tippen klatscht den **Popo-Klatsch-Counter** 
 Popo kühlt ab: Der Counter sinkt ständig, und zwar immer schneller (die Abkühlung wächst um 1,5 % pro Sekunde,
 verdoppelt sich also etwa alle 47 Sekunden). Fällt der Counter auf **-10**, ist das Spiel vorbei.
 
+**Klatschen im Takt (ab 1.8):** Um den Popo liegt ein gestrichelter Kreis, ein zweiter Ring schrumpft darauf
+zu und trifft ihn genau auf dem Schlag. Tippen in dem Moment ist **PERFEKT** (x3), knapp daneben **Gut** (x1,5).
+Jeder Treffer in Folge erhöht die Combo (+10 % pro Treffer, bis x3); ab Combo 16 startet der Fieber-Modus.
+Tippen neben dem Takt ist **Daneben**: kostet so viel, wie ein Klatscher bringt, und die Combo ist weg.
+Einen Schlag ganz auslassen beendet die Combo ebenfalls. Pro Schlag zählt nur ein Treffer, also bringt wildes
+Hämmern nichts. Der Takt startet gemütlich (0,9 s) und wird mit der Zeit schneller (bis 0,45 s).
+Griffe mit mehreren Fingern zählen nur, wenn sie im Takt landen. Bosse verlieren nur durch Treffer im Takt
+Lebenspunkte (15, jeder weitere +5). Goodies kommen alle 30 bis 50 Sekunden, der Bonus-Stern alle 60 bis 90.
+Die Versionsnummer steht unten links.
+
 **Shop** (Einkaufswagen oben links, nur im Spiel): Counter-Punkte gegen Upgrades tauschen. Die
 Punkte sind dann weg, und der Counter sinkt währenddessen weiter. Preise steigen pro Stufe exponentiell.
 
