@@ -297,6 +297,10 @@ def main():
         ("resources.arsc", build_arsc(), True),
         (ICON_PATH, open(icon, "rb").read(), True),
     ]
+    # Optional 5th argument: an assets folder, packed as assets/<name> (read with AssetManager).
+    if len(sys.argv) > 5 and os.path.isdir(sys.argv[5]):
+        for name in sorted(os.listdir(sys.argv[5])):
+            files.append(("assets/" + name, open(os.path.join(sys.argv[5], name), "rb").read(), False))
     write_zip(out, files)
     key, cert = load_key(key_dir)
     sign_v2(out, key, cert)

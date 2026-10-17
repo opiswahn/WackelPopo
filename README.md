@@ -132,6 +132,11 @@ Boss im Spiel) und für die Tages-Challenge.
 überleben, einen Boss besiegen, 2 Minuten ohne Shop). Steht auf dem Startbildschirm. Geschafft gibt es
 40 Taler plus 10 pro Tag in Folge (bis +100).
 
+**Der Kanadier (ab 1.9):** Wer wild aufs Display hämmert (4 Fehlschläge in 2 Sekunden) oder die
+Stinkbombe fängt, bekommt Besuch: Unten rechts fährt ein Kopf im South-Park-Kanadier-Stil herein, klappt
+beim Reden die obere Hälfte auf, hebt die Hand und ruft „Einfach mal NEIN sagen!“. Höchstens alle
+12 Sekunden. Die Kopfhälften liegen in `app/src/main/assets/`, gebaut mit `tools/kanadier.py`.
+
 **Rekord teilen (ab 1.4):** Auf der Game-Over-Karte macht „📤 Rekord teilen“ ein Bild mit Popo samt Outfit,
 Punktzahl und Spruch und öffnet das Android-Teilen-Menü (WhatsApp usw.).
 
@@ -145,8 +150,14 @@ oder per `adb install wackel-popo-debug.apk`.
 
 ## Updates direkt aus GitHub
 Jeder Push auf `main` startet den GitHub-Build (`.github/workflows/release.yml`): Er baut das APK mit
-`tools/build-ohne-sdk.sh`, signiert es mit dem Schlüssel aus den Repo-Secrets `SIGNING_KEY_PEM` und
-`SIGNING_CERT_DER` und veröffentlicht es als Release `build-<versionCode>` (versionCode = 100 + Build-Nummer).
+`tools/build-ohne-sdk.sh`, signiert es mit dem Release-Schlüssel und veröffentlicht es als Release
+`build-<versionCode>` mit der Datei `wackel-popo.apk` (versionCode = 100 + Build-Nummer).
+
+Der Release-Schlüssel wird mit `tools/release-key.py` bei jedem Build aus dem Repo-Secret
+`SIGNING_PASSPHRASE` abgeleitet; gleiches Passwort ergibt immer denselben Schlüssel. Einmalig einrichten:
+GitHub → Repo → Settings → Secrets and variables → Actions → „New repository secret“, Name
+`SIGNING_PASSPHRASE`, Wert ein eigenes Passwort (mindestens 8 Zeichen, gut aufheben, nie ändern).
+Das Release-APK hat einen anderen Schlüssel als das Debug-APK: Beim Wechsel einmal deinstallieren.
 
 Beim Start fragt die App das neueste Release ab. Ist es neuer als die installierte Version, erscheint oben
 „⬇ Neue Version …: tippen zum Installieren“. Ein Tipp lädt das APK und übergibt es dem Android-Installer;

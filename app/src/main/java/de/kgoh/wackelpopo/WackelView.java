@@ -130,6 +130,13 @@ public class WackelView extends View {
     private float lastHitAt = -10f;
     private int lastJudge;
     private final String versionLabel;
+
+    // The Kanadier: a cut-out head (South Park style) that pops up and flaps its top half while talking.
+    private android.graphics.Bitmap kanadierTop, kanadierBottom;
+    private float kanadierAt = -100f;
+    private String kanadierLine = "";
+    private final float[] missTimes = new float[4];
+    private int missIndex;
     private int nextAward;
     /** Klatscher of all earlier games; awards count these plus this game's total. */
     private double lifetimeBase;
@@ -254,6 +261,12 @@ public class WackelView extends View {
             version = "";
         }
         versionLabel = version;
+        try {
+            kanadierTop = android.graphics.BitmapFactory.decodeStream(context.getAssets().open("kanadier_oben.png"));
+            kanadierBottom = android.graphics.BitmapFactory.decodeStream(context.getAssets().open("kanadier_unten.png"));
+        } catch (java.io.IOException e) {
+            kanadierTop = kanadierBottom = null;
+        }
         settings = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
         wardrobe = new Wardrobe(context);
         daily = new Daily(context);
@@ -480,6 +493,11 @@ public class WackelView extends View {
             floatText("−" + fmt(loss), x, y, 0xFFB0BEC5, 0.8f, 0);
             word("Daneben", popoX, popoY - popoR * 1.35f, 0xFFB0BEC5, 0.8f, 0);
             breakCombo();
+            // Four misses within two seconds is hammering: time for the Kanadier.
+            missTimes[missIndex++ % missTimes.length] = now;
+            boolean hammering = true;
+            for (float t : missTimes) hammering &= now - t < 2f;
+            if (hammering) kanadier("Einfach mal NEIN sagen!");
             return;
         }
         nextBeatHit = true;
@@ -744,6 +762,14 @@ public class WackelView extends View {
     /** Seconds between beats: calm at first, getting faster the longer you last. */
     private float beatInterval() {
         return Math.max(0.45f, 0.9f - playTime * 0.002f);
+    }
+
+    /** Lets the Kanadier pop up with a line, at most every 12 seconds. */
+    private void kanadier(String line) {
+        if (kanadierTop == null || now - kanadierAt < 12f) return;
+        kanadierAt = now;
+        kanadierLine = line;
+        Synth.melody(new float[]{196, 0, 196, 247}, 0.08f);
     }
 
     private void updateBeat() {
@@ -1034,6 +1060,7 @@ public class WackelView extends View {
                     p.grow = unit * 0.08f;
                 }
                 special(Awards.NOSE_CLIP);
+                kanadier("Bei Stinkbomben: Einfach mal NEIN sagen!");
                 break;
             case Goodies.MAGNET:
                 nextStarAt = playTime;
@@ -1454,6 +1481,7 @@ public class WackelView extends View {
         drawHud(c, w, h);
         drawButtons(c);
         drawBanner(c, w, h);
+        drawKanadier(c, w, h);
         text.setStyle(Paint.Style.FILL);
         text.setTextAlign(Paint.Align.LEFT);
         text.setTextSize(unit * 0.03f);
@@ -1719,6 +1747,84 @@ public class WackelView extends View {
             c.drawCircle(popoX, popoY, target * (1f + since * 0.6f), line);
         }
         line.setAlpha(255);
+    }
+
+    /**
+     * Slides in from the bottom right, raises a stop hand and talks: the top of the head flaps up
+     * like a lid, the way Canadians do in South Park.
+     */
+    private void drawKanadier(Canvas c, float w, float h) {
+        float t = now - kanadierAt;
+        if (kanadierTop == null || t < 0 || t > 3.2f) return;
+        float slide = t < 0.3f ? 1 - t / 0.3f : (t > 2.9f ? (t - 2.9f) / 0.3f : 0);
+        float hw = unit * 0.3f;
+        float scale = hw / kanadierTop.getWidth();
+        float topH = kanadierTop.getHeight() * scale, botH = kanadierBottom.getHeight() * scale;
+        float x = w - hw - unit * 0.04f;
+        float mouthY = h * 0.6f + slide * (h * 0.45f);
+        // Stop hand next to the head.
+        drawStopHand(c, x - unit * 0.06f, mouthY + botH * 0.2f, unit * 0.11f);
+        rect.set(x, mouthY, x + hw, mouthY + botH);
+        c.drawBitmap(kanadierBottom, null, rect, null);
+        float flap = t < 2.2f ? 28f * Math.abs((float) Math.sin(t * 13f)) : 0f;
+        c.save();
+        c.rotate(flap, x + hw * 0.92f, mouthY);
+        rect.set(x, mouthY - topH, x + hw, mouthY);
+        c.drawBitmap(kanadierTop, null, rect, null);
+        c.restore();
+        if (slide == 0) {
+            // Speech bubble to the upper left.
+            float bw = unit * 0.5f, bh = unit * 0.19f, bx = x - bw - unit * 0.02f, by = mouthY - topH - bh * 0.4f;
+            bx = Math.max(unit * 0.03f, bx);
+            fill.setColor(Color.WHITE);
+            line.setColor(INK);
+            line.setStrokeWidth(unit * 0.008f);
+            rect.set(bx, by, bx + bw, by + bh);
+            c.drawOval(rect, fill);
+            c.drawOval(rect, line);
+            path.reset();
+            path.moveTo(bx + bw * 0.78f, by + bh * 0.85f);
+            path.lineTo(x + hw * 0.15f, mouthY - topH * 0.35f);
+            path.lineTo(bx + bw * 0.9f, by + bh * 0.7f);
+            c.drawPath(path, fill);
+            c.drawLine(bx + bw * 0.78f, by + bh * 0.85f, x + hw * 0.15f, mouthY - topH * 0.35f, line);
+            c.drawLine(bx + bw * 0.9f, by + bh * 0.7f, x + hw * 0.15f, mouthY - topH * 0.35f, line);
+            text.setStyle(Paint.Style.FILL);
+            text.setTextAlign(Paint.Align.CENTER);
+            text.setColor(INK);
+            String[] words = kanadierLine.split(" ");
+            String l1 = "", l2 = "";
+            for (String word : words) {
+                if (l1.length() < kanadierLine.length() / 2) l1 += (l1.isEmpty() ? "" : " ") + word;
+                else l2 += (l2.isEmpty() ? "" : " ") + word;
+            }
+            text.setTextSize(fit(l1.length() > l2.length() ? l1 : l2, unit * 0.05f, bw * 0.78f));
+            c.drawText(l1, bx + bw / 2f, by + bh * 0.45f, text);
+            c.drawText(l2, bx + bw / 2f, by + bh * 0.75f, text);
+        }
+    }
+
+    private void drawStopHand(Canvas c, float cx, float cy, float s) {
+        int skin = 0xFFF2B38F;
+        fill.setColor(skin);
+        line.setColor(INK);
+        line.setStrokeWidth(s * 0.06f);
+        float wave = (float) Math.sin(now * 10) * 6f;
+        c.save();
+        c.rotate(wave, cx, cy + s);
+        for (int i = 0; i < 4; i++) {
+            float fx = cx - s * 0.42f + i * s * 0.28f;
+            rect.set(fx - s * 0.12f, cy - s * (0.95f + (i == 1 || i == 2 ? 0.1f : 0f)), fx + s * 0.12f, cy);
+            c.drawRoundRect(rect, s * 0.12f, s * 0.12f, fill);
+            c.drawRoundRect(rect, s * 0.12f, s * 0.12f, line);
+        }
+        rect.set(cx + s * 0.35f, cy - s * 0.25f, cx + s * 0.75f, cy + s * 0.05f);
+        c.drawRoundRect(rect, s * 0.14f, s * 0.14f, fill);
+        c.drawRoundRect(rect, s * 0.14f, s * 0.14f, line);
+        rect.set(cx - s * 0.56f, cy - s * 0.3f, cx + s * 0.5f, cy + s * 0.7f);
+        c.drawRoundRect(rect, s * 0.25f, s * 0.25f, fill);
+        c.drawRoundRect(rect, s * 0.25f, s * 0.25f, line);
+        c.restore();
     }
 
     /** A soft pulsing glow behind an evolved popo, plus a ring that bursts outwards right after it evolves. */

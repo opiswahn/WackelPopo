@@ -1,8 +1,8 @@
 # Baut bei jedem Push auf main das APK und veröffentlicht es als GitHub-Release.
 # Die App sucht beim Start nach dem neuesten Release und bietet es zum Installieren an.
 #
-# Braucht zwei Repo-Secrets mit dem Signaturschlüssel (base64), damit Android neue Versionen
-# als Update über die alte installiert: SIGNING_KEY_PEM und SIGNING_CERT_DER.
+# Braucht ein Repo-Secret SIGNING_PASSPHRASE (mindestens 8 Zeichen). Daraus wird bei jedem Build
+# derselbe Release-Schlüssel abgeleitet, damit Android neue Versionen als Update installiert.
 name: APK bauen und veröffentlichen
 
 on:
@@ -41,16 +41,13 @@ jobs:
 
       - name: Signaturschlüssel einrichten
         env:
-          SIGNING_KEY_PEM: ${{ secrets.SIGNING_KEY_PEM }}
-          SIGNING_CERT_DER: ${{ secrets.SIGNING_CERT_DER }}
+          SIGNING_PASSPHRASE: ${{ secrets.SIGNING_PASSPHRASE }}
         run: |
-          if [ -z "$SIGNING_KEY_PEM" ] || [ -z "$SIGNING_CERT_DER" ]; then
-            echo "::error::Secrets SIGNING_KEY_PEM und SIGNING_CERT_DER fehlen. Ohne sie lassen sich Updates nicht installieren."
+          if [ -z "$SIGNING_PASSPHRASE" ]; then
+            echo "::error::Secret SIGNING_PASSPHRASE fehlt (Settings > Secrets and variables > Actions)."
             exit 1
           fi
-          mkdir -p "$RUNNER_TEMP/keys"
-          echo "$SIGNING_KEY_PEM" | base64 -d > "$RUNNER_TEMP/keys/debug-key.pem"
-          echo "$SIGNING_CERT_DER" | base64 -d > "$RUNNER_TEMP/keys/debug-cert.der"
+          python3 tools/release-key.py "$RUNNER_TEMP/keys"
 
       - name: APK bauen
         run: |
@@ -61,11 +58,12 @@ jobs:
           VERSION_CODE=$((100 + GITHUB_RUN_NUMBER)) VERSION_NAME="$name.$GITHUB_RUN_NUMBER" \
             ANDROID_JAR="$RUNNER_TEMP/tools/android.jar" DX_JAR="$RUNNER_TEMP/tools/dx.jar" KEYS_DIR="$RUNNER_TEMP/keys" \
             tools/build-ohne-sdk.sh
+          cp build-ohne-sdk/wackel-popo-debug.apk wackel-popo.apk
 
       - name: Release veröffentlichen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git log -1 --pretty=%B > notes.txt
-          gh release create "build-$VERSION_CODE" build-ohne-sdk/wackel-popo-debug.apk \
+          gh release create "build-$VERSION_CODE" wackel-popo.apk \
             --title "Wackel-Popo $VERSION_NAME" --notes-file notes.txt --latest
